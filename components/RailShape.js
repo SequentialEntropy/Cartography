@@ -1,4 +1,4 @@
-export const RailShape = {
+export const RailShape = Object.freeze({
     NORTH_SOUTH : "NS",
 	EAST_WEST : "EW",
 	// ASCENDING_EAST : "ascending_east",
@@ -9,4 +9,4 @@ export const RailShape = {
 	SOUTH_WEST : "SW",
 	NORTH_WEST : "NW",
 	NORTH_EAST : "NE"
-}
+})

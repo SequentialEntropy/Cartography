@@ -1,37 +1,42 @@
-import { markDirty } from "./Canvas.js"
+import { AbstractMinecartEntity } from "./AbstractMinecartEntity.js"
+import { RailShape } from "./RailShape.js"
+import { Vec3d } from "./Vec3d.js"
+import { Vec3i } from "./Vec3i.js"
 
-export const ENTITIES = [
-    {
-        x: 0,
-        y: 0,
-        rotation: 0
-    },
-    {
-        x: 1,
-        y: 1,
-        rotation: 45
-    }
-]
+export const Direction = Object.freeze({
+    DOWN: new Vec3i(0, -1, 0),
+    UP: new Vec3i(0, 1, 0),
+    NORTH: new Vec3i(0, 0, -1),
+    SOUTH: new Vec3i(0, 0, 1),
+    EAST: new Vec3i(1, 0, 0),
+    WEST: new Vec3i(-1, 0, 0),
+})
 
-export function World() {
+export class World {
+    entities = []
+    grid = {}
 
-    function tick() {
-        for (const cart of ENTITIES) {
-            cart.rotation = (cart.rotation + 10) % 360
+    constructor() {
+        this.entities = [
+            new AbstractMinecartEntity(new Vec3d(0.5, 0, 0.5), 45, this),
+            new AbstractMinecartEntity(new Vec3d(0.5 + .5, 0, 2.49 + .5), 0, this),
+        ]
+    
+        this.grid = {
+            "1,1": RailShape.SOUTH_EAST,
+            "1,2": RailShape.NORTH_EAST,
+            "2,1": RailShape.SOUTH_WEST,
+            "2,2": RailShape.NORTH_WEST,
         }
     }
 
-    function gameLoop() {
-        // const now = performance.now()
-        // const mspt = now - lastTick
-        // lastTick = now
-
-        tick()
-        markDirty()
-
-        // const tps = 1000 / mspt
-        // tpsMeter.textContent = `TPS: ${tps.toFixed(2)}`
+    getBlockState(blockPos) {
+        return this.grid[`${blockPos.x},${blockPos.z}`]
     }
-
-    setInterval(gameLoop, 1000 / 20)
+    
+    tick() {
+        for (const entity of this.entities) {
+            entity.tick()
+        }
+    }
 }

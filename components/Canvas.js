@@ -1,19 +1,10 @@
 import { RailShape } from "./RailShape.js"
 import { selectedTool, ToolTypes } from "./toolbar.js"
-import { ENTITIES } from "./World.js"
-
-export const GRID = {
-    "1,1": RailShape.EAST_WEST,
-    "2,1": RailShape.EAST_WEST,
-    "3,1": RailShape.EAST_WEST,
-    "4,1": RailShape.EAST_WEST,
-    "5,1": RailShape.EAST_WEST,
-}
 
 export const TRANSFORM = {
     x: 0,
     y: 0,
-    scale: 1,
+    scale: 5,
 }
 
 const MOUSE = {
@@ -25,7 +16,7 @@ let DIRTY = true
 
 export function markDirty() { DIRTY = true }
 
-export function Canvas() {
+export function Canvas(WORLD) {
     const CANVAS = document.getElementById("canvas")
     const ctx = CANVAS.getContext("2d")
 
@@ -150,13 +141,13 @@ export function Canvas() {
 
     function place({x, z}, shape) {
         const key = `${x},${z}`
-        GRID[key] = shape
+        WORLD.grid[key] = shape
         markDirty()
     }
 
     function erase({x, z}) {
         const key = `${x},${z}`
-        delete GRID[key]
+        delete WORLD.grid[key]
         markDirty()
     }
 
@@ -198,14 +189,14 @@ export function Canvas() {
 
         if (TRANSFORM.scale * TILE_SIZE < 8) {
             ctx.fillStyle = "#b8afa2"
-            for (const key in GRID) {
+            for (const key in WORLD.grid) {
                 const [x, y] = key.split(",").map(Number)
                 ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
             }
         } else {
-            for (const key in GRID) {
+            for (const key in WORLD.grid) {
                 const [x, y] = key.split(",").map(Number)
-                const shape = GRID[key]
+                const shape = WORLD.grid[key]
                 const img = textures[shape]
                 if (!img) {
                     ctx.fillStyle = "#ff0000"
@@ -220,9 +211,8 @@ export function Canvas() {
             }
         }
 
-        for (const cart of ENTITIES) {
-            // console.log(cart)
-            drawRotatedImage(ctx, textures.minecart, (cart.x - 0.125) * TILE_SIZE, cart.y * TILE_SIZE, cart.rotation, TILE_SIZE * 1.25, TILE_SIZE)
+        for (const cart of WORLD.entities) {
+            drawRotatedImage(ctx, textures.minecart, (cart.pos.x - 0.625) * TILE_SIZE, (cart.pos.z - 0.5) * TILE_SIZE, cart.yaw, TILE_SIZE * 1.25, TILE_SIZE)
         }
 
         ctx.restore()

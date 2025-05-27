@@ -1,4 +1,4 @@
-import { GRID, markDirty } from "./Canvas.js"
+import { markDirty } from "./Canvas.js"
 
 export const ToolTypes = Object.freeze({
     NS: "NS",
@@ -22,7 +22,7 @@ export let selectedTool = ToolTypes.NS
 </div>
 */
 
-export function Toolbar() {
+export function Toolbar(WORLD) {
     const Toolbar = document.getElementById("toolbar")
     
     for (const tool in ToolTypes) {
@@ -56,7 +56,7 @@ export function Toolbar() {
         reader.onload = e => {
             try {
                 const json = JSON.parse(e.target.result);
-                Object.assign(GRID, json);
+                Object.assign(WORLD.grid, json);
                 markDirty()
             } catch (err) {
                 alert("Invalid JSON file.");
