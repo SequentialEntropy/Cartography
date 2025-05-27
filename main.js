@@ -20,3 +20,4 @@ function gameLoop() {
 }
 
 setInterval(gameLoop, 1000 / 20)
+// gameLoop()

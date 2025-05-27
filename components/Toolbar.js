@@ -65,4 +65,8 @@ export function Toolbar(WORLD) {
         reader.readAsText(file);
 
     })
+
+    const fpsMeter = document.createElement("span")
+    fpsMeter.id = "fpsMeter"
+    Toolbar.appendChild(fpsMeter)
 }

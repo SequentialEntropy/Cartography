@@ -15,6 +15,7 @@ export const Direction = Object.freeze({
 export class World {
     entities = []
     grid = {}
+    MINECART_MAX_SPEED = 32
 
     constructor() {
         this.entities = [
@@ -24,7 +25,7 @@ export class World {
     
         this.grid = {
             "1,1": RailShape.SOUTH_EAST,
-            "1,2": RailShape.NORTH_EAST,
+            // "1,2": RailShape.NORTH_EAST,
             "2,1": RailShape.SOUTH_WEST,
             "2,2": RailShape.NORTH_WEST,
         }

@@ -10,7 +10,6 @@ export class ExperimentalMinecartController {
     }
 
     tick() {
-        // this.minecart.yaw = (this.minecart.yaw + 10) % 360
 
         // if (this.getWorld() instanceof ServerWorld serverWorld) {
         const serverWorld = this.getWorld()
@@ -126,9 +125,9 @@ export class ExperimentalMinecartController {
 
             // Initialize the pitch variable.
             let pitch = 0.0;
-            // // Check if the vertical components of startOffset and endOffset differ, which might indicate an ascending or descending rail.
-            // boolean isSloped = startOffset.getY() != startOffset.getY();
-            // if (isSloped) {
+            // Check if the vertical components of startOffset and endOffset differ, which might indicate an ascending or descending rail.
+            let isSloped = startOffset.getY() != startOffset.getY();
+            if (isSloped) {
             //     // Calculate the adjusted position for ascending rails.
             //     Vec3d ascendTarget = pos.toBottomCenterPos().add(endDir);
             //     // Calculate the vertical distance from the new bottom center pos to the current position.
@@ -137,10 +136,10 @@ export class ExperimentalMinecartController {
             //     this.setPos(this.getPos().add(0.0, verticalOffset + 0.1, 0.0));
             //     // Set the pitch to a tilt; if the yaw is flipped, pitch is 45 degrees, otherwise -45 degrees.
             //     pitch = this.minecart.isYawFlipped() ? 45.0F : -45.0F;
-            // } else {
-            //     // If the rail is flat, apply a small upward adjustment.
-            //     this.setPos(this.getPos().add(0.0, 0.1, 0.0));
-            // }
+            } else {
+                // If the rail is flat, apply a small upward adjustment.
+                this.setPos(this.getPos().addXYZ(0.0, 0.1, 0.0));
+            }
 
             // Finally, set the minecart's yaw and pitch angles.
             this.setAngles(yaw, pitch)
@@ -156,15 +155,278 @@ export class ExperimentalMinecartController {
     }
 
     // TODO: public void moveOnRail(ServerWorld world)
-    moveOnRail(world) {}
-    // TODO: private Vec3d calcNewHorizontalVelocity(ServerWorld world, Vec3d horizontalVelocity, MoveIteration iteration, BlockPos pos, BlockState railState, RailShape railShape)
+    moveOnRail(world) {
+        for (const moveIteration = new MoveIteration(); moveIteration.shouldContinue() && this.minecart.isAlive(); moveIteration.initial = false) {
+            // Get the current velocity of the minecart
+            let currentVelocity = this.getVelocity();
+            // Get the position of the rail or the cart itself
+            let blockPos = this.minecart.getRailOrMinecartPos();
+            // Get the block state at that position
+            let blockState = this.getWorld().getBlockState(blockPos);
+            // Check whether the current block is a rail
+            let isOnRail = AbstractRailBlock.isRail(blockState);
+
+            // Sync the minecart's "on rail" status
+            if (this.minecart.isOnRail() != isOnRail) {
+                this.minecart.setOnRail(isOnRail);
+                // Adjust the cart’s position to match the rail orientation
+                this.adjustToRail(blockPos, blockState, false);
+            }
+
+            if (isOnRail) {
+                // Trigger landing logic (e.g., for fall damage or sounds)
+                this.minecart.onLanding();
+                // Reset internal position state (likely used for interpolation)
+                this.minecart.resetPosition();
+
+                // Special handling for activator rails (which may trigger events)
+                // if (blockState.isOf(Blocks.ACTIVATOR_RAIL)) {
+                //     this.minecart.onActivatorRail(blockPos.getX(), blockPos.getY(), blockPos.getZ(), (Boolean)blockState.get(PoweredRailBlock.POWERED));
+                // }
+
+                // Determine rail shape (e.g., straight, curved, sloped)
+                let railShape = blockState
+
+                // Calculate new velocity along the rail
+                let adjustedVelocity = this.calcNewHorizontalVelocity(world, currentVelocity.getHorizontal(), moveIteration, blockPos, blockState, railShape);
+
+                // Update remaining movement distance for this iteration
+                if (moveIteration.initial) {
+                    moveIteration.remainingMovement = adjustedVelocity.horizontalLength();
+                } else {
+                    moveIteration.remainingMovement += (adjustedVelocity.horizontalLength() - currentVelocity.horizontalLength());
+                }
+
+                // Apply new velocity
+                this.setVelocityVec3d(adjustedVelocity);
+                // Move the cart along the track and update the remaining distance
+                moveIteration.remainingMovement = this.minecart.moveAlongTrack(blockPos, railShape, moveIteration.remainingMovement);
+            } else {
+                // If not on a rail, handle off-rail movement
+                this.minecart.moveOffRail(world);
+                moveIteration.remainingMovement = 0.0;
+            }
+
+            // Determine the position delta for orientation and interpolation
+//             Vec3d currentPosition = this.getPos();
+//             Vec3d deltaPosition = currentPosition.subtract(this.minecart.getLastRenderPos());
+//             double deltaLength = deltaPosition.length();
+
+//             if (deltaLength > 1.0E-5F) {
+//                 if (!(deltaPosition.horizontalLengthSquared() > 1.0E-5F)) {
+//                     if (!this.minecart.isOnRail()) {
+//                         float adjustedPitch = this.minecart.isOnGround() ? 0.0F : MathHelper.lerpAngleDegrees(0.2F, this.getPitch(), 0.0F);
+//                         this.setPitch(adjustedPitch);
+//                     }
+//                 } else {
+//                     // Set yaw and pitch based on direction of movement
+//                     float yaw = 180.0F - (float)(Math.atan2(deltaPosition.z, deltaPosition.x) * 180.0 / Math.PI);
+//                     float pitch = this.minecart.isOnGround() && !this.minecart.isOnRail()
+//                             ? 0.0F
+//                             : 90.0F - (float)(Math.atan2(deltaPosition.horizontalLength(), deltaPosition.y) * 180.0 / Math.PI);
+
+//                     if (this.minecart.isYawFlipped()) {
+//                         yaw += 180.0F;
+//                         pitch *= -1.0F;
+//                     }
+
+//                     this.setAngles(yaw, pitch);
+//                 }
+
+// //                this.broadcast("stagingLerpSteps (HIGH deltaLength)");
+//                 // Add to interpolation steps for rendering (likely client-side)
+//                 thisObject.stagingLerpSteps.add(new ExperimentalMinecartController.Step(
+//                         currentPosition,
+//                         this.getVelocity(),
+//                         this.getYaw(),
+//                         this.getPitch(),
+//                         (float)Math.min(deltaLength, this.getMaxSpeed(world))
+//                 ));
+//             } else if (currentVelocity.horizontalLengthSquared() > 0.0) {
+// //                this.broadcast("stagingLerpSteps (LOW  deltaLength)");
+//                 // If not moving significantly but still has horizontal speed
+//                 thisObject.stagingLerpSteps.add(new ExperimentalMinecartController.Step(
+//                         currentPosition,
+//                         this.getVelocity(),
+//                         this.getYaw(),
+//                         this.getPitch(),
+//                         1.0F));
+//             }
+
+            // If moved or in the first iteration, handle collision checks
+            // if (deltaLength > 1.0E-5 || moveIteration.initial) {
+            //     this.minecart.tickBlockCollision(); // Called twice for redundancy or separate pass types
+            //     this.minecart.tickBlockCollision();
+            // }
+        }
+        
+    }
+
+    calcNewHorizontalVelocity(world, horizontalVelocity, iteration, pos, railState, railShape) {
+        // --- Apply slope adjustment once ---
+        // Adjust velocity if the rail is on a slope (e.g., ascending/descending)
+        let updatedVelocity = horizontalVelocity;
+        // if (!iteration.slopeVelocityApplied) {
+        //     slopeAdjustedVelocity = this.applySlopeVelocity(horizontalVelocity, railShape);
+        //     if (slopeAdjustedVelocity.horizontalLengthSquared() != horizontalVelocity.horizontalLengthSquared()) {
+        //         iteration.slopeVelocityApplied = true; // If velocity changed, mark that slope has been handled
+        //         updatedVelocity = slopeAdjustedVelocity;
+        //     }
+        // }
+
+        // --- Apply player input on the first iteration only ---
+        if (iteration.initial) {
+            let initialVelocity = this.applyInitialVelocity(updatedVelocity);
+            if (initialVelocity.horizontalLengthSquared() != updatedVelocity.horizontalLengthSquared()) {
+                iteration.decelerated = true; // If velocity changed, mark as decelerated
+                updatedVelocity = initialVelocity;
+            }
+        }
+
+        // --- Apply passive deceleration from unpowered rail if not already done ---
+        // if (!iteration.decelerated) {
+        //     deceleratedVelocity = this.decelerateFromPoweredRail(updatedVelocity, railState);
+        //     if (deceleratedVelocity.horizontalLengthSquared() != updatedVelocity.horizontalLengthSquared()) {
+        //         iteration.decelerated = true; // If velocity changed, mark as decelerated
+        //         updatedVelocity = deceleratedVelocity;
+        //     }
+        // }
+
+        // --- Apply general slowdown (friction) on first iteration ---
+        if (iteration.initial) {
+            updatedVelocity = this.minecart.applySlowdown(updatedVelocity);
+
+            if (updatedVelocity.lengthSquared() > 0.0) {
+                // Clamp velocity to the cart's maximum allowed speed
+                let clampedSpeed = Math.min(updatedVelocity.length(), this.minecart.getMaxSpeed(world));
+                updatedVelocity = updatedVelocity.normalize().multiplyConst(clampedSpeed);
+            }
+        }
+
+        // --- Apply powered rail acceleration if not already done ---
+        // if (!iteration.accelerated) {
+        //     acceleratedVelocity = this.accelerateFromPoweredRail(updatedVelocity, pos, railState);
+        //     if (acceleratedVelocity.horizontalLengthSquared() != updatedVelocity.horizontalLengthSquared()) {
+        //         iteration.accelerated = true; // Mark as accelerated
+        //         updatedVelocity = acceleratedVelocity;
+        //     }
+        // }
+
+        // Final velocity after all adjustments
+        return updatedVelocity
+    }
     // TODO: private Vec3d applySlopeVelocity(Vec3d horizontalVelocity, RailShape railShape)
-    // TODO: private Vec3d applyInitialVelocity(Vec3d horizontalVelocity)
+
+    applyInitialVelocity(horizontalVelocity) {
+        // TODO: player input
+        return horizontalVelocity
+    }
+
     // TODO: private Vec3d decelerateFromPoweredRail(Vec3d velocity, BlockState railState)
     // TODO: private Vec3d accelerateFromPoweredRail(Vec3d velocity, BlockPos railPos, BlockState railState)
-    // TODO: public double moveAlongTrack(BlockPos blockPos, RailShape railShape, double remainingDistance)
+
+    // TODO
+    moveAlongTrack(blockPos, railShape, remainingDistance) {
+        // If there's almost no movement left, stop the cart
+        if (remainingDistance < 1.0E-5) {
+            return 0.0;
+        } else {
+            let currentPosition = this.getPos();
+
+            // Get the two directional vectors associated with the rail shape
+            let railDirections = AbstractMinecartEntity.getAdjacentRailPositionsByShape(railShape);
+            let railDirA = railDirections[0];
+            let railDirB = railDirections[1];
+
+            let currentVelocity = this.getVelocity().getHorizontal(); // Current horizontal velocity
+
+            // If the velocity is very small, stop the cart
+            if (currentVelocity.length() < 1.0E-5) {
+                this.setVelocityVec3d(Vec3d.ZERO);
+                return 0.0;
+            } else {
+                // Check if the track is sloped (change in Y)
+                let isSloped = railDirA.getY() != railDirB.getY();
+
+                // Scale to half-length
+                let scaledDirA = Vec3d.fromVec3i(railDirA).multiplyConst(0.5).getHorizontal();
+                let scaledDirB = Vec3d.fromVec3i(railDirB).multiplyConst(0.5).getHorizontal();
+
+                // Choose the direction that's more aligned with current velocity
+                let travelDirection = currentVelocity.dotProduct(scaledDirA) < currentVelocity.dotProduct(scaledDirB)
+                        ? scaledDirB : scaledDirA;
+
+                // Compute target position a bit ahead in the chosen direction
+                let targetPosition = blockPos.toBottomCenterPos()
+                        .addVec3d(travelDirection)                                      // move halfway in direction
+                        .addXYZ(0.0, 0.1, 0.0)                               // slight vertical offset
+                        .addVec3d(travelDirection.normalize().multiplyConst(1.0E-5)); // tiny nudge for precision
+
+                // // If track is sloped and cart is not ascending, raise the target position
+                // if (isSloped && !this.ascends(currentVelocity, railShape)) {
+                //     targetPosition = targetPosition.add(0.0, 1.0, 0.0);
+                // }
+
+                // Recalculate velocity to point toward the adjusted target position
+                let targetDirection = targetPosition.subtractVec3d(this.getPos()).normalize();
+                currentVelocity = targetDirection.multiplyConst(currentVelocity.length() / targetDirection.horizontalLength());
+
+                // Predict next position based on remaining movement
+                let predictedPosition = currentPosition.addVec3d(currentVelocity.normalize().multiplyConst(
+                        remainingDistance * (isSloped ? MathHelper.SQUARE_ROOT_OF_TWO : 1.0)));
+                
+                // If we're going to overshoot the target, clamp to it and reduce remaining movement
+                if (currentPosition.squaredDistanceTo(targetPosition) <= currentPosition.squaredDistanceTo(predictedPosition)) {
+                    remainingDistance = targetPosition.subtractVec3d(predictedPosition).horizontalLength();
+                    predictedPosition = targetPosition;
+                } else {
+                    remainingDistance = 0.0;
+                }
+
+                // Actually move the minecart to the new position
+                this.minecart.move(MovementType.SELF, predictedPosition.subtractVec3d(currentPosition));
+
+                // Check the block at the new position for rail information
+                // let blockState = this.getWorld().getBlockState(BlockPos.ofFloored(predictedPosition));
+
+            //     if (isSloped) { // If moving on a sloped track
+            //         if (AbstractRailBlock.isRail(blockState)) {
+            //             RailShape railShape2 = blockState.get(((AbstractRailBlock)blockState.getBlock()).getShapeProperty());
+            //             // Stop if the cart transitions from a V-shaped track to a rest position
+            //             if (this.restOnVShapedTrack(railShape, railShape2)) {
+            //                 return 0.0;
+            //             }
+            //         }
+
+            //         // Calculate vertical adjustment needed
+            //         double distanceToTarget = targetPosition.getHorizontal().distanceTo(this.getPos().getHorizontal());
+            //         double predictedY = targetPosition.y + (this.ascends(currentVelocity, railShape) ? distanceToTarget : -distanceToTarget);
+
+            //         // Adjust vertical position if minecart is below target height
+            //         if (this.getPos().y < predictedY) {
+            //             this.setPos(this.getPos().x, predictedY, this.getPos().z);
+            //         }
+            //     }
+
+                // If very little movement occurred, stop the cart
+                if (this.getPos().distanceTo(currentPosition) < 1.0E-5 && predictedPosition.distanceTo(currentPosition) > 1.0E-5) {
+                    this.setVelocityVec3d(Vec3d.ZERO);
+                    return 0.0;
+                } else {
+                    // Otherwise, update velocity and return remaining movement
+                    this.setVelocityVec3d(currentVelocity);
+                    return remainingDistance;
+                }
+            }
+        }
+    }
+
     // TODO: private boolean restOnVShapedTrack(RailShape currentRailShape, RailShape newRailShape)
-    // TODO: public double getMaxSpeed(ServerWorld world)
+
+    getMaxSpeed(world) {
+        return world.MINECART_MAX_SPEED * (this.minecart.isTouchingWater() ? 0.5 : 1.0) / 20.0;
+		// return world.getGameRules().getInt(GameRules.MINECART_MAX_SPEED) * (this.minecart.isTouchingWater() ? 0.5 : 1.0) / 20.0;
+	}
 
     ascends(velocity, railShape) {
         switch (railShape) {
@@ -176,40 +438,66 @@ export class ExperimentalMinecartController {
         };
     }
 
-    // TODO: public double getSpeedRetention()
-    // TODO: public boolean handleCollision()
+    getSpeedRetention() {
+        // return this.minecart.hasPassengers() ? 0.997 : 0.975;
+        return this.minecart.hasPassengers() ? 0.999999 : 0.975;
+    }
+
+    // TODO
+    handleCollision() { return false }
+
     // TODO: public boolean pickUpEntities(Box box)
     // TODO: public boolean pushAwayFromEntities(Box box)
 
+    
     /**
      * Inherited from MinecartController
-     */
-    // TODO: public void resetLerp()
-    // TODO: public void setPos(double x, double y, double z, float yaw, float pitch, int interpolationSteps)
-    // TODO: public double getLerpTargetX()
-    // TODO: public double getLerpTargetY()
-    // TODO: public double getLerpTargetZ()
-    // TODO: public float getLerpTargetPitch()
-    // TODO: public float getLerpTargetYaw()
-    // TODO: public void setLerpTargetVelocity(double x, double y, double z)
-    getWorld() { return this.minecart.getWorld() }
-    getVelocity() { return this.minecart.getVelocity() }
-    // TODO: public void setVelocity(Vec3d velocity)
-    // TODO: public void setVelocity(double x, double y, double z)
-    getPos() { return this.minecart.getPos() }
-    // TODO: public double getX()
-    // TODO: public double getY()
-    // TODO: public double getZ()
-    setPos(pos) { this.minecart.setPositionVec3d(pos) }
-    // TODO: public void setPos(double x, double y, double z)
-    // TODO: public float getPitch()
-    setPitch(pitch) { this.minecart.setPitch(pitch) }
-    getYaw() { return this.minecart.getYaw() }
-    setYaw(yaw) { this.minecart.setYaw(yaw) }
-    // TODO: public Direction getHorizontalFacing()
-    // TODO: public Vec3d limitSpeed(Vec3d velocity)
+    */
+   // TODO: public void resetLerp()
+   // TODO: public void setPos(double x, double y, double z, float yaw, float pitch, int interpolationSteps)
+   // TODO: public double getLerpTargetX()
+   // TODO: public double getLerpTargetY()
+   // TODO: public double getLerpTargetZ()
+   // TODO: public float getLerpTargetPitch()
+   // TODO: public float getLerpTargetYaw()
+   // TODO: public void setLerpTargetVelocity(double x, double y, double z)
+   getWorld() { return this.minecart.getWorld() }
+   getVelocity() { return this.minecart.getVelocity() }
+   setVelocityVec3d(velocity) { this.minecart.setVelocityVec3d(velocity) }
+   // TODO: public void setVelocity(double x, double y, double z)
+   getPos() { return this.minecart.getPos() }
+   // TODO: public double getX()
+   // TODO: public double getY()
+   // TODO: public double getZ()
+   setPos(pos) { this.minecart.setPositionVec3d(pos) }
+   // TODO: public void setPos(double x, double y, double z)
+   // TODO: public float getPitch()
+   setPitch(pitch) { this.minecart.setPitch(pitch) }
+   getYaw() { return this.minecart.getYaw() }
+   setYaw(yaw) { this.minecart.setYaw(yaw) }
+   // TODO: public Direction getHorizontalFacing()
+   // TODO: public Vec3d limitSpeed(Vec3d velocity)
 }
 
 function clamp(x, mi, ma) {
     return Math.max(mi, Math.min(x, ma))
+}
+class MoveIteration {
+    remainingMovement = 0.0;
+    initial = true;
+    slopeVelocityApplied = false;
+    decelerated = false;
+    accelerated = false;
+
+    shouldContinue() {
+        return this.initial || this.remainingMovement > 1.0E-5;
+    }
+}
+
+const MovementType = {
+	SELF: "self",
+	PLAYER: "player",
+	PISTON: "piston",
+	SHULKER_BOX: "shulker_box",
+	SHULKER: "shulker"
 }

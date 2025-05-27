@@ -2,6 +2,7 @@ import { BlockPos } from "./BlockPos.js"
 import { Entity } from "./Entity.js"
 import { ExperimentalMinecartController } from "./ExperimentalMinecartController.js"
 import { RailShape } from "./RailShape.js"
+import { Vec3d } from "./Vec3d.js"
 import { Direction } from "./World.js"
 
 export class AbstractMinecartEntity extends Entity {
@@ -12,6 +13,7 @@ export class AbstractMinecartEntity extends Entity {
         super("minecart", world)
         this.pos = vec
         this.yaw = yaw
+        this.velocity = new Vec3d(1.6, 0, 0) // block per gametick (1/20), not block per second
         this.controller = new ExperimentalMinecartController(this)
     }
 
@@ -57,9 +59,8 @@ export class AbstractMinecartEntity extends Entity {
         return this.firstUpdate
     }
 
-    setOnRail(onRail) {
-		this.onRail = onRail
-	}
+    setOnRail(onRail) { this.onRail = onRail }
+    isOnRail() { return this.onRail }
 
     applyGravity() {
         super.applyGravity()
@@ -82,4 +83,57 @@ export class AbstractMinecartEntity extends Entity {
 
     isYawFlipped() { return this.yawFlipped }
     setYawFlipped(yawFlipped) { this.yawFlipped = yawFlipped }
+    isAlive() { return true }
+
+    applySlowdown(velocity) {
+		let d = this.controller.getSpeedRetention();
+		let vec3d = velocity.multiplyXYZ(d, 0.0, d);
+		if (this.isTouchingWater()) {
+			vec3d = vec3d.multiply(0.95);
+		}
+
+		return vec3d;
+	}
+
+    getMaxSpeed(world) {
+		return this.controller.getMaxSpeed(world);
+	}
+
+    // TODO
+    moveOffRail(world) {
+		// let d = this.getMaxSpeed(world);
+		// let vec3d = this.getVelocity();
+		// this.setVelocity(MathHelper.clamp(vec3d.x, -d, d), vec3d.y, MathHelper.clamp(vec3d.z, -d, d));
+		// if (this.isOnGround()) {
+		// 	this.setVelocity(this.getVelocity().multiply(0.5));
+		// }
+
+		// this.move(MovementType.SELF, this.getVelocity());
+		// if (!this.isOnGround()) {
+		// 	this.setVelocity(this.getVelocity().multiply(0.95));
+		// }
+	}
+
+    moveAlongTrack(pos, shape, remainingMovement) {
+		return this.controller.moveAlongTrack(pos, shape, remainingMovement);
+	}
+
+    move(type, movement) {
+        if (true) {
+		// if (areMinecartImprovementsEnabled(this.getWorld())) {
+			let vec3d = this.getPos().addVec3d(movement);
+			super.move(type, movement);
+			let bl = this.controller.handleCollision();
+			if (bl) {
+				super.move(type, vec3d.subtractVec3d(this.getPos()));
+			}
+
+			// if (type.equals(MovementType.PISTON)) {
+			// 	this.onRail = false;
+			// }
+		} else {
+			super.move(type, movement);
+			this.tickBlockCollision();
+		}
+	}
 }

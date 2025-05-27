@@ -13,4 +13,8 @@ export class BlockPos extends Vec3i {
     toBottomCenterPos() {
 		return Vec3d.ofBottomCenter(this);
 	}
+
+    static ofFloored(pos) {
+        return new BlockPos(Math.floor(pos.getX()), Math.floor(pos.getY()), Math.floor(pos.getZ()))
+    }
 }

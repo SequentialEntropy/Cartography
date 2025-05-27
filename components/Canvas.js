@@ -218,18 +218,20 @@ export function Canvas(WORLD) {
         ctx.restore()
     }
 
+    let lastFrameTime = performance.now()
+    const fpsMeter = document.getElementById("fpsMeter")
     function animationLoop() {
-        // const now = performance.now()
-        // const msPerFrame = now - lastFrameTime
-        // lastFrameTime = now
+        const now = performance.now()
+        const msPerFrame = now - lastFrameTime
+        lastFrameTime = now
 
         if (DIRTY) {
             render()
             DIRTY = false
         }
 
-        // const fps = 1000 / msPerFrame
-        // fpsMeter.textContent = `FPS: ${fps.toFixed(2)}`
+        const fps = 1000 / msPerFrame
+        fpsMeter.textContent = `FPS: ${fps.toFixed(2)}`
 
         requestAnimationFrame(animationLoop)
     }
