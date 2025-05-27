@@ -66,6 +66,17 @@ export function Toolbar(WORLD) {
 
     })
 
+    const DownloadIcon = document.createElement("img")
+    const downloadAnchor = document.createElement("a");
+    DownloadIcon.src = "assets/bundle_open_front.png"
+    DownloadIcon.addEventListener("click", () => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(WORLD.grid));
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", "track_layout.json");
+        downloadAnchor.click();
+    })
+    Toolbar.appendChild(DownloadIcon)
+
     const fpsMeter = document.createElement("span")
     fpsMeter.id = "fpsMeter"
     Toolbar.appendChild(fpsMeter)

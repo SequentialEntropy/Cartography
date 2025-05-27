@@ -2,9 +2,9 @@ import { RailShape } from "./RailShape.js"
 import { selectedTool, ToolTypes } from "./toolbar.js"
 
 export const TRANSFORM = {
-    x: 0,
-    y: 0,
-    scale: 5,
+    x: 600,
+    y: 250,
+    scale: 0.15,
 }
 
 const MOUSE = {

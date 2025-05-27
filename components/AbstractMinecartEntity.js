@@ -9,11 +9,11 @@ export class AbstractMinecartEntity extends Entity {
     onRail = false
     yawFlipped = false
 
-    constructor(vec, yaw, world) {
+    constructor(pos, vel, yaw, world) {
         super("minecart", world)
-        this.pos = vec
+        this.pos = pos
         this.yaw = yaw
-        this.velocity = new Vec3d(1.6, 0, 0) // block per gametick (1/20), not block per second
+        this.velocity = vel // block per gametick (1/20), not block per second
         this.controller = new ExperimentalMinecartController(this)
     }
 
