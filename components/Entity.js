@@ -1,3 +1,4 @@
+import { MathHelper } from "./MathHelper.js"
 import { Vec3d } from "./Vec3d.js"
 
 export class Entity {
@@ -7,6 +8,10 @@ export class Entity {
     velocity = Vec3d.ZERO
     yaw = 0
     pitch = 0
+    onGround = false
+    lastRenderX = 0;
+	lastRenderY = 0;
+	lastRenderZ = 0;
     firstUpdate = true
     constructor(type, world) {
         this.type = type
@@ -33,9 +38,13 @@ export class Entity {
         if (!Number.isFinite(pitch)) {
             throw new Error("Invalid entity rotation: " + pitch + ", discarding.")
         } else {
-            this.pitch = clamp(pitch % 360.0, -90.0, 90.0)
+            this.pitch = MathHelper.clamp(pitch % 360.0, -90.0, 90.0)
         }
     }
+
+    getLastRenderPos() {
+		return new Vec3d(this.lastRenderX, this.lastRenderY, this.lastRenderZ);
+	}
 
     setPositionXYZ(x, y, z) {
         this.pos = new Vec3d(x, y, z)
@@ -50,10 +59,34 @@ export class Entity {
 		// this.fallDistance = 0.0;
 	}
 
+    isOnGround() {
+		return this.onGround;
+	}
+
     // TODO
     resetPosition() {
-
+        this.updatePrevPosition();
+		this.updatePrevAngles();
     }
+
+    updatePrevPosition() {
+		this.setPrevPosition(this.pos);
+	}
+
+    updatePrevAngles() {
+		this.setPrevAngles(this.getYaw(), this.getPitch());
+	}
+
+    setPrevPosition(pos) {
+		this.prevX = this.lastRenderX = pos.x;
+		this.prevY = this.lastRenderY = pos.y;
+		this.prevZ = this.lastRenderZ = pos.z;
+	}
+
+    setPrevAngles(prevYaw, prevPitch) {
+		this.prevYaw = prevYaw;
+		this.prevPitch = prevPitch;
+	}
 
     // TODO
     applyGravity() {}
@@ -162,8 +195,4 @@ export class Entity {
     adjustMovementForSneaking(movement, type) {
 		return movement;
 	}
-}
-
-function clamp(x, mi, ma) {
-    return Math.max(mi, Math.min(x, ma))
 }

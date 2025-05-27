@@ -1,9 +1,12 @@
 import { AbstractMinecartEntity } from "./AbstractMinecartEntity.js";
 import { AbstractRailBlock } from "./AbstractRailBlock.js";
+import { MathHelper } from "./MathHelper.js";
 import { Vec3d } from "./Vec3d.js";
 
 export class ExperimentalMinecartController {
     minecart
+    stagingLerpSteps = []
+    // currentLerpSteps = []
 
     constructor(minecart) {
         this.minecart = minecart
@@ -46,7 +49,7 @@ export class ExperimentalMinecartController {
 			pitch *= -1.0;
 		}
 
-		pitch = clamp(pitch, -45.0, 45.0);
+		pitch = MathHelper.clamp(pitch, -45.0, 45.0);
 		this.setPitch(pitch % 360.0);
 		this.setYaw(yaw % 360.0);
 	}
@@ -208,50 +211,50 @@ export class ExperimentalMinecartController {
             }
 
             // Determine the position delta for orientation and interpolation
-//             Vec3d currentPosition = this.getPos();
-//             Vec3d deltaPosition = currentPosition.subtract(this.minecart.getLastRenderPos());
-//             double deltaLength = deltaPosition.length();
+            let currentPosition = this.getPos();
+            let deltaPosition = currentPosition.subtractVec3d(this.minecart.getLastRenderPos());
+            let deltaLength = deltaPosition.length();
 
-//             if (deltaLength > 1.0E-5F) {
-//                 if (!(deltaPosition.horizontalLengthSquared() > 1.0E-5F)) {
-//                     if (!this.minecart.isOnRail()) {
-//                         float adjustedPitch = this.minecart.isOnGround() ? 0.0F : MathHelper.lerpAngleDegrees(0.2F, this.getPitch(), 0.0F);
-//                         this.setPitch(adjustedPitch);
-//                     }
-//                 } else {
-//                     // Set yaw and pitch based on direction of movement
-//                     float yaw = 180.0F - (float)(Math.atan2(deltaPosition.z, deltaPosition.x) * 180.0 / Math.PI);
-//                     float pitch = this.minecart.isOnGround() && !this.minecart.isOnRail()
-//                             ? 0.0F
-//                             : 90.0F - (float)(Math.atan2(deltaPosition.horizontalLength(), deltaPosition.y) * 180.0 / Math.PI);
+            if (deltaLength > 1.0E-5) {
+                if (!(deltaPosition.horizontalLengthSquared() > 1.0E-5)) {
+                    if (!this.minecart.isOnRail()) {
+                        let adjustedPitch = this.minecart.isOnGround() ? 0.0 : MathHelper.lerpAngleDegrees(0.2, this.getPitch(), 0.0);
+                        this.setPitch(adjustedPitch);
+                    }
+                } else {
+                    // Set yaw and pitch based on direction of movement
+                    let yaw = 180.0 - (Math.atan2(deltaPosition.z, deltaPosition.x) * 180.0 / Math.PI);
+                    let pitch = this.minecart.isOnGround() && !this.minecart.isOnRail()
+                            ? 0.0
+                            : 90.0 - (Math.atan2(deltaPosition.horizontalLength(), deltaPosition.y) * 180.0 / Math.PI);
 
-//                     if (this.minecart.isYawFlipped()) {
-//                         yaw += 180.0F;
-//                         pitch *= -1.0F;
-//                     }
+                    if (this.minecart.isYawFlipped()) {
+                        yaw += 180.0;
+                        pitch *= -1.0;
+                    }
 
-//                     this.setAngles(yaw, pitch);
-//                 }
+                    this.setAngles(yaw, pitch);
+                }
 
-// //                this.broadcast("stagingLerpSteps (HIGH deltaLength)");
-//                 // Add to interpolation steps for rendering (likely client-side)
-//                 thisObject.stagingLerpSteps.add(new ExperimentalMinecartController.Step(
-//                         currentPosition,
-//                         this.getVelocity(),
-//                         this.getYaw(),
-//                         this.getPitch(),
-//                         (float)Math.min(deltaLength, this.getMaxSpeed(world))
-//                 ));
-//             } else if (currentVelocity.horizontalLengthSquared() > 0.0) {
-// //                this.broadcast("stagingLerpSteps (LOW  deltaLength)");
-//                 // If not moving significantly but still has horizontal speed
-//                 thisObject.stagingLerpSteps.add(new ExperimentalMinecartController.Step(
-//                         currentPosition,
-//                         this.getVelocity(),
-//                         this.getYaw(),
-//                         this.getPitch(),
-//                         1.0F));
-//             }
+//                this.broadcast("stagingLerpSteps (HIGH deltaLength)");
+                // Add to interpolation steps for rendering (likely client-side)
+                // this.stagingLerpSteps.push(new Step(
+                //         currentPosition,
+                //         this.getVelocity(),
+                //         this.getYaw(),
+                //         this.getPitch(),
+                //         Math.min(deltaLength, this.getMaxSpeed(world))
+                // ));
+            } else if (currentVelocity.horizontalLengthSquared() > 0.0) {
+//                this.broadcast("stagingLerpSteps (LOW  deltaLength)");
+                // If not moving significantly but still has horizontal speed
+                // this.stagingLerpSteps.push(new Step(
+                //         currentPosition,
+                //         this.getVelocity(),
+                //         this.getYaw(),
+                //         this.getPitch(),
+                //         1.0));
+            }
 
             // If moved or in the first iteration, handle collision checks
             // if (deltaLength > 1.0E-5 || moveIteration.initial) {
@@ -471,7 +474,7 @@ export class ExperimentalMinecartController {
    // TODO: public double getZ()
    setPos(pos) { this.minecart.setPositionVec3d(pos) }
    // TODO: public void setPos(double x, double y, double z)
-   // TODO: public float getPitch()
+   getPitch() { return this.minecart.getPitch() }
    setPitch(pitch) { this.minecart.setPitch(pitch) }
    getYaw() { return this.minecart.getYaw() }
    setYaw(yaw) { this.minecart.setYaw(yaw) }
@@ -479,9 +482,6 @@ export class ExperimentalMinecartController {
    // TODO: public Vec3d limitSpeed(Vec3d velocity)
 }
 
-function clamp(x, mi, ma) {
-    return Math.max(mi, Math.min(x, ma))
-}
 class MoveIteration {
     remainingMovement = 0.0;
     initial = true;
@@ -500,4 +500,13 @@ const MovementType = {
 	PISTON: "piston",
 	SHULKER_BOX: "shulker_box",
 	SHULKER: "shulker"
+}
+
+class Step {
+    position
+    movement
+    yRot
+    xRot
+    weight
+    static ZERO = new Step(Vec3d.ZERO, Vec3d.ZERO, 0.0, 0.0, 0.0)
 }

@@ -34,6 +34,7 @@ export class AbstractMinecartEntity extends Entity {
 		// 	this.setOnFireFromLava();
 		// 	this.fallDistance *= 0.5F;
 		// }
+        console.log(this.yaw % 45)
 
 		this.firstUpdate = false;
     }

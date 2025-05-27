@@ -3,6 +3,7 @@ import { Toolbar } from "./components/toolbar.js"
 import { World } from "./components/World.js"
 
 const WORLD = new World()
+const TPS = 20
 
 Toolbar(WORLD)
 Canvas(WORLD)
@@ -19,5 +20,5 @@ function gameLoop() {
     // tpsMeter.textContent = `TPS: ${tps.toFixed(2)}`
 }
 
-setInterval(gameLoop, 1000 / 20)
+setInterval(gameLoop, 1000 / TPS)
 // gameLoop()
