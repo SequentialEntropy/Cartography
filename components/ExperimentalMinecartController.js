@@ -502,11 +502,11 @@ const MovementType = {
 	SHULKER: "shulker"
 }
 
-class Step {
-    position
-    movement
-    yRot
-    xRot
-    weight
-    static ZERO = new Step(Vec3d.ZERO, Vec3d.ZERO, 0.0, 0.0, 0.0)
-}
+// class Step {
+//     position
+//     movement
+//     yRot
+//     xRot
+//     weight
+//     static ZERO = new Step(Vec3d.ZERO, Vec3d.ZERO, 0.0, 0.0, 0.0)
+// }

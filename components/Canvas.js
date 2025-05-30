@@ -33,6 +33,8 @@ export function Canvas(WORLD) {
     const textures = {}
     const TILE_SIZE = 16
 
+    const ZOOM_SPEED = 0.01
+
     for (const shapeName in RailShape) {
         const shape = RailShape[shapeName]
         textures[shape] = new Image()
@@ -44,7 +46,7 @@ export function Canvas(WORLD) {
     CANVAS.addEventListener("wheel", e => {
         e.preventDefault()
         if (e.ctrlKey || e.metaKey || e.deltaZ !== 0) {
-            const zoomFactor = Math.exp(-e.deltaY * 0.02)
+            const zoomFactor = Math.exp(-e.deltaY * ZOOM_SPEED)
             const rect = CANVAS.getBoundingClientRect()
             const mouseX = e.clientX - rect.left
             const mouseY = e.clientY - rect.top
