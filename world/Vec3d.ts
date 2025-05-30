@@ -1,18 +1,28 @@
-export class Vec3d {
-    static ZERO = new Vec3d(0.0, 0.0, 0.0)
+import { Position } from './Position.js';
+import { Vec3i } from "./Vec3i.js"
 
-    constructor(x, y, z) {
+export class Vec3d implements Position {
+    static ZERO = new Vec3d(0.0, 0.0, 0.0)
+    x: number
+    y: number
+    z: number
+
+    private constructor(x: number, y: number, z: number) {
         this.x = x
         this.y = y
         this.z = z
         Object.freeze(this)
     }
 
-    static fromVec3i(vec) {
+    static fromXYZ(x: number, y: number, z: number) {
+        return new Vec3d(x, y, z)
+    }
+
+    static fromVec3i(vec: Vec3i) {
         return new Vec3d(vec.x, vec.y, vec.z)
     }
 
-    dotProduct(vec) {
+    dotProduct(vec: Vec3d) {
         return this.x * vec.x + this.y * vec.y + this.z * vec.z
     }
 
@@ -21,47 +31,43 @@ export class Vec3d {
 		return d < 1.0E-5 ? Vec3d.ZERO : new Vec3d(this.x / d, this.y / d, this.z / d)
 	}
 
-    multiplyConst(value) {
+    multiplyConst(value: number) {
         return this.multiplyXYZ(value, value, value)
     }
 
-    multiplyXYZ(x, y, z) {
+    multiplyXYZ(x: number, y: number, z: number) {
         return new Vec3d(this.x * x, this.y * y, this.z * z)
     }
 
     getHorizontal() {
         return new Vec3d(this.x, 0, this.z)
     }
-
-    dotProduct(vec) {
-		return this.x * vec.x + this.y * vec.y + this.z * vec.z
-	}
     
     getX() { return this.x }
     getY() { return this.y }
     getZ() { return this.z }
     
-    addXYZ(x, y, z) {
+    addXYZ(x: number, y: number, z: number) {
         return new Vec3d(this.x + x, this.y + y, this.z + z)
     }
     
-    addVec3d(vec) {
+    addVec3d(vec: Vec3d) {
         return this.addXYZ(vec.x, vec.y, vec.z)
     }
     
-    subtractXYZ(x, y, z) {
+    subtractXYZ(x: number, y: number, z: number) {
         return this.addXYZ(-x, -y, -z)
     }
     
-    subtractVec3d(vec) {
+    subtractVec3d(vec: Vec3d) {
         return this.subtractXYZ(vec.x, vec.y, vec.z)
     }
     
-    static ofCenter(vec) {
+    static ofCenter(vec: Vec3i) {
         return Vec3d.fromVec3i(vec).addXYZ(0.5, 0.5, 0.5)
     }
     
-    static ofBottomCenter(vec) {
+    static ofBottomCenter(vec: Vec3i) {
         return Vec3d.fromVec3i(vec).addXYZ(0.5, 0, 0.5)
     }
 
@@ -81,14 +87,14 @@ export class Vec3d {
 		return this.x * this.x + this.z * this.z;
 	}
 
-    distanceTo(vec) {
+    distanceTo(vec: Vec3d) {
 		const d = vec.x - this.x;
 		const e = vec.y - this.y;
 		const f = vec.z - this.z;
 		return Math.sqrt(d * d + e * e + f * f);
 	}
 
-    squaredDistanceTo(vec) {
+    squaredDistanceTo(vec: Vec3d) {
 		const d = vec.x - this.x;
 		const e = vec.y - this.y;
 		const f = vec.z - this.z;

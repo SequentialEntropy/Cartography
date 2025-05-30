@@ -1,5 +1,6 @@
-import { RailShape } from "./RailShape.js"
-import { selectedTool, ToolTypes } from "./toolbar.js"
+import { selectedTool, ToolTypes } from "./Toolbar.js"
+import { World } from "../world/World.js"
+import { RailShape } from "../world/RailShape.js"
 
 export const TRANSFORM = {
     x: 600,
@@ -7,7 +8,7 @@ export const TRANSFORM = {
     scale: 0.15,
 }
 
-const MOUSE = {
+const MOUSE: {draw: boolean, lastPos: null | CanvasPosition} = {
     draw: false,
     lastPos: null
 }
@@ -16,9 +17,19 @@ let DIRTY = true
 
 export function markDirty() { DIRTY = true }
 
-export function Canvas(WORLD) {
-    const CANVAS = document.getElementById("canvas")
-    const ctx = CANVAS.getContext("2d")
+interface GridPosition {
+    x: number,
+    z: number
+}
+
+interface CanvasPosition {
+    x: number,
+    y: number
+}
+
+export function Canvas(WORLD: World) {
+    const CANVAS = document.getElementById("canvas") as HTMLCanvasElement
+    const ctx = CANVAS.getContext("2d") as CanvasRenderingContext2D
 
     function updateCanvasSize() {
         CANVAS.width = CANVAS.clientWidth
@@ -29,14 +40,13 @@ export function Canvas(WORLD) {
     window.addEventListener('resize', updateCanvasSize)
     updateCanvasSize()
 
-
-    const textures = {}
+    const textures: Record<string, HTMLImageElement> = {}
     const TILE_SIZE = 16
 
     const ZOOM_SPEED = 0.01
 
     for (const shapeName in RailShape) {
-        const shape = RailShape[shapeName]
+        const shape = RailShape[shapeName as keyof typeof RailShape]
         textures[shape] = new Image()
         textures[shape].src = `assets/${shape}.png`
     }
@@ -91,7 +101,7 @@ export function Canvas(WORLD) {
     /**
      * Bresenham's Line Algorithm
      */
-    function interpolateLine(pos0, pos1, callback) {
+    function interpolateLine(pos0: GridPosition, pos1: GridPosition, callback: (pos: GridPosition) => void) {
         let x = pos0.x
         let z = pos0.z
         const x1 = pos1.x
@@ -117,7 +127,7 @@ export function Canvas(WORLD) {
         }
     }
 
-    function draw(pos) {
+    function draw(pos: CanvasPosition) {
         if (!MOUSE.lastPos) {
             placeOrErase(snap(canvasToGrid(pos)))
         } else {
@@ -125,35 +135,45 @@ export function Canvas(WORLD) {
         }
     }
 
-    function placeOrErase({x, z}) {
+    function placeOrErase(pos: GridPosition) {
         switch(selectedTool) {
             case ToolTypes.ERASE:
-                erase({x, z})
+                erase(pos)
                 break
             case ToolTypes.NS:
+                place(pos, "NS")
+                break
             case ToolTypes.EW:
+                place(pos, "EW")
+                break
             case ToolTypes.NE:
+                place(pos, "NE")
+                break
             case ToolTypes.SE:
+                place(pos, "SE")
+                break
             case ToolTypes.NW:
+                place(pos, "NW")
+                break
             case ToolTypes.SW:
-                place({x, z}, selectedTool)
+                place(pos, "SW")
                 break
         }
     }
 
-    function place({x, z}, shape) {
+    function place({x, z}: GridPosition, shape: string) {
         const key = `${x},${z}`
         WORLD.grid[key] = shape
         markDirty()
     }
 
-    function erase({x, z}) {
+    function erase({x, z}: GridPosition) {
         const key = `${x},${z}`
         delete WORLD.grid[key]
         markDirty()
     }
 
-    function canvasToGrid({x, y}) {
+    function canvasToGrid({x, y}: CanvasPosition) {
         const rect = CANVAS.getBoundingClientRect();
         return {
             x: ((x - rect.left) - TRANSFORM.x) / (TILE_SIZE * TRANSFORM.scale),
@@ -161,14 +181,14 @@ export function Canvas(WORLD) {
         };
     }
 
-    function snap({x, z}) {
+    function snap({x, z}: GridPosition) {
         return {
             x: Math.floor(x),
             z: Math.floor(z)
         }
     }
 
-    function drawRotatedImage(ctx, image, x, y, angle, width, height) {
+    function drawRotatedImage(image: HTMLImageElement, x: number, y: number, angle: number, width: number, height: number) {
         ctx.save(); // Save current state
 
         // Move to the center of the image
@@ -214,7 +234,7 @@ export function Canvas(WORLD) {
         }
 
         for (const cart of WORLD.entities) {
-            drawRotatedImage(ctx, textures.minecart, (cart.pos.x - 0.625) * TILE_SIZE, (cart.pos.z - 0.5) * TILE_SIZE, cart.yaw, TILE_SIZE * 1.25, TILE_SIZE)
+            drawRotatedImage(textures.minecart, (cart.pos.x - 0.625) * TILE_SIZE, (cart.pos.z - 0.5) * TILE_SIZE, cart.yaw, TILE_SIZE * 1.25, TILE_SIZE)
         }
 
         ctx.restore()
@@ -222,6 +242,7 @@ export function Canvas(WORLD) {
 
     let lastFrameTime = performance.now()
     const fpsMeter = document.getElementById("fpsMeter")
+
     function animationLoop() {
         const now = performance.now()
         const msPerFrame = now - lastFrameTime
@@ -233,7 +254,7 @@ export function Canvas(WORLD) {
         }
 
         const fps = 1000 / msPerFrame
-        fpsMeter.textContent = `FPS: ${fps.toFixed(2)}`
+        if (fpsMeter) fpsMeter.textContent = `FPS: ${fps.toFixed(2)}`
 
         requestAnimationFrame(animationLoop)
     }

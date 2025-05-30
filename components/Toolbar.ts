@@ -1,15 +1,16 @@
 import { markDirty } from "./Canvas.js"
+import { World } from "../world/World.js"
 
-export const ToolTypes = Object.freeze({
-    NS: "NS",
-    EW: "EW",
-    NE: "NE",
-    SE: "SE",
-    NW: "NW",
-    SW: "SW",
-    ERASE: "ERASE",
-    BEZIER: "BEZIER"
-})
+export enum ToolTypes {
+    NS = "NS",
+    EW = "EW",
+    NE = "NE",
+    SE = "SE",
+    NW = "NW",
+    SW = "SW",
+    ERASE = "ERASE",
+    BEZIER = "BEZIER"
+}
 
 export let selectedTool = ToolTypes.NS
 
@@ -22,8 +23,10 @@ export let selectedTool = ToolTypes.NS
 </div>
 */
 
-export function Toolbar(WORLD) {
+export function Toolbar(WORLD: World) {
     const Toolbar = document.getElementById("toolbar")
+
+    if (!Toolbar) throw new Error("#toolbar not found - unable to load toolbar")
     
     for (const tool in ToolTypes) {
         const Icon = document.createElement("img")
@@ -31,7 +34,7 @@ export function Toolbar(WORLD) {
         if (selectedTool === tool) Icon.classList.add("selected")
         Icon.src = `assets/${tool}.png`
         Icon.addEventListener("click", () => {
-            selectedTool = tool
+            selectedTool = tool as ToolTypes
             Array.from(Toolbar.children).forEach(Btn => {
                 Btn.classList.remove("selected")
             });
@@ -50,21 +53,22 @@ export function Toolbar(WORLD) {
     Label.appendChild(UploadIcon)
 
     const UploadButton = document.getElementById("upload")
-    UploadButton.addEventListener("change", e => {
-        const file = e.target.files[0];
+    if (!UploadButton) throw new Error("#upload not found - unable to load upload button")
+    UploadButton.onchange = e => {
+        const target = e.target as HTMLInputElement;
+        const file = (target.files as FileList)[0];
         const reader = new FileReader();
         reader.onload = e => {
             try {
-                const json = JSON.parse(e.target.result);
-                Object.assign(WORLD.grid, json);
+                const json = JSON.parse(e.target?.result as string);
+                WORLD.import(json);
                 markDirty()
             } catch (err) {
                 alert("Invalid JSON file.");
             }
         };
         reader.readAsText(file);
-
-    })
+    }
 
     const DownloadIcon = document.createElement("img")
     const downloadAnchor = document.createElement("a");

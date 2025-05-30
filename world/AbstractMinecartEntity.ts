@@ -1,15 +1,17 @@
 import { BlockPos } from "./BlockPos.js"
 import { Entity } from "./Entity.js"
 import { ExperimentalMinecartController } from "./ExperimentalMinecartController.js"
+import { MovementType } from "./MovementType.js"
 import { RailShape } from "./RailShape.js"
 import { Vec3d } from "./Vec3d.js"
-import { Direction } from "./World.js"
+import { Direction, World } from "./World.js"
 
 export class AbstractMinecartEntity extends Entity {
     onRail = false
     yawFlipped = false
+    controller
 
-    constructor(pos, vel, yaw, world) {
+    constructor(pos: Vec3d, vel: Vec3d, yaw: number, world: World) {
         super("minecart", world)
         this.pos = pos
         this.yaw = yaw
@@ -34,7 +36,6 @@ export class AbstractMinecartEntity extends Entity {
 		// 	this.setOnFireFromLava();
 		// 	this.fallDistance *= 0.5F;
 		// }
-        console.log(this.yaw % 45)
 
 		this.firstUpdate = false;
     }
@@ -60,18 +61,18 @@ export class AbstractMinecartEntity extends Entity {
         return this.firstUpdate
     }
 
-    setOnRail(onRail) { this.onRail = onRail }
+    setOnRail(onRail: boolean) { this.onRail = onRail }
     isOnRail() { return this.onRail }
 
     applyGravity() {
         super.applyGravity()
     }
 
-    moveOnRail(world) {
+    moveOnRail(world: World) {
 		this.controller.moveOnRail(world)
 	}
 
-    static getAdjacentRailPositionsByShape(shape) {
+    static getAdjacentRailPositionsByShape(shape: RailShape) {
         switch (shape) {
             case RailShape.NORTH_SOUTH: return [Direction.NORTH, Direction.SOUTH]
             case RailShape.EAST_WEST:   return [Direction.WEST,  Direction.EAST]
@@ -79,29 +80,30 @@ export class AbstractMinecartEntity extends Entity {
             case RailShape.SOUTH_EAST:  return [Direction.SOUTH, Direction.EAST]
             case RailShape.NORTH_WEST:  return [Direction.NORTH, Direction.WEST]
             case RailShape.SOUTH_WEST:  return [Direction.SOUTH, Direction.WEST]
+            default: return [Direction.NORTH, Direction.SOUTH]
         }
     }
 
     isYawFlipped() { return this.yawFlipped }
-    setYawFlipped(yawFlipped) { this.yawFlipped = yawFlipped }
+    setYawFlipped(yawFlipped: boolean) { this.yawFlipped = yawFlipped }
     isAlive() { return true }
 
-    applySlowdown(velocity) {
+    applySlowdown(velocity: Vec3d) {
 		let d = this.controller.getSpeedRetention();
 		let vec3d = velocity.multiplyXYZ(d, 0.0, d);
 		if (this.isTouchingWater()) {
-			vec3d = vec3d.multiply(0.95);
+			vec3d = vec3d.multiplyConst(0.95);
 		}
 
 		return vec3d;
 	}
 
-    getMaxSpeed(world) {
+    getMaxSpeed(world: World) {
 		return this.controller.getMaxSpeed(world);
 	}
 
     // TODO
-    moveOffRail(world) {
+    moveOffRail(world: World) {
 		// let d = this.getMaxSpeed(world);
 		// let vec3d = this.getVelocity();
 		// this.setVelocity(MathHelper.clamp(vec3d.x, -d, d), vec3d.y, MathHelper.clamp(vec3d.z, -d, d));
@@ -115,13 +117,12 @@ export class AbstractMinecartEntity extends Entity {
 		// }
 	}
 
-    moveAlongTrack(pos, shape, remainingMovement) {
+    moveAlongTrack(pos: BlockPos, shape: RailShape, remainingMovement: number) {
 		return this.controller.moveAlongTrack(pos, shape, remainingMovement);
 	}
 
-    move(type, movement) {
-        if (true) {
-		// if (areMinecartImprovementsEnabled(this.getWorld())) {
+    move(type: MovementType, movement: Vec3d) {
+		if (this.areMinecartImprovementsEnabled(this.getWorld())) {
 			let vec3d = this.getPos().addVec3d(movement);
 			super.move(type, movement);
 			let bl = this.controller.handleCollision();
@@ -129,12 +130,16 @@ export class AbstractMinecartEntity extends Entity {
 				super.move(type, vec3d.subtractVec3d(this.getPos()));
 			}
 
-			// if (type.equals(MovementType.PISTON)) {
-			// 	this.onRail = false;
-			// }
+			if (type === MovementType.PISTON) {
+				this.onRail = false;
+			}
 		} else {
 			super.move(type, movement);
 			this.tickBlockCollision();
 		}
 	}
+
+    areMinecartImprovementsEnabled(world: World) {
+        return true
+    }
 }

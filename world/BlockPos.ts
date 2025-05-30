@@ -1,8 +1,9 @@
+import { Position } from "./Position.js";
 import { Vec3d } from "./Vec3d.js";
 import { Vec3i } from "./Vec3i.js";
 
 export class BlockPos extends Vec3i {
-    constructor(i, j, k) {
+    constructor(i: number, j: number, k: number) {
 		super(i, j, k)
 	}
 
@@ -14,7 +15,7 @@ export class BlockPos extends Vec3i {
 		return Vec3d.ofBottomCenter(this);
 	}
 
-    static ofFloored(pos) {
+    static ofFloored(pos: Position) {
         return new BlockPos(Math.floor(pos.getX()), Math.floor(pos.getY()), Math.floor(pos.getZ()))
     }
 }
