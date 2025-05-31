@@ -235,7 +235,24 @@ export function Canvas(WORLD: World) {
 
         for (const cart of WORLD.entities) {
             drawRotatedImage(textures.minecart, (cart.pos.x - 0.625) * TILE_SIZE, (cart.pos.z - 0.5) * TILE_SIZE, cart.yaw, TILE_SIZE * 1.25, TILE_SIZE)
+
+            if (cart.canvasLine.length > 1) {
+                ctx.beginPath()
+                ctx.moveTo(cart.canvasLine[0][0] * TILE_SIZE, cart.canvasLine[0][1] * TILE_SIZE)
+                for (let i = 1; i < cart.canvasLine.length; i++) {
+                    const [x, z] = cart.canvasLine[i]
+                    ctx.lineTo(x * TILE_SIZE, z * TILE_SIZE)
+                }
+                ctx.strokeStyle = "#ff0000"
+                ctx.stroke()
+            }
         }
+
+        // ctx.beginPath()
+        // ctx.moveTo((0.5) * TILE_SIZE, (0.5) * TILE_SIZE)
+        // ctx.lineTo((0.5) * TILE_SIZE, (2.5) * TILE_SIZE)
+        // ctx.lineTo((1.5) * TILE_SIZE, (2.5) * TILE_SIZE)
+        // ctx.stroke()
 
         ctx.restore()
     }

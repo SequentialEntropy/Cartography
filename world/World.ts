@@ -3,6 +3,7 @@ import { BlockState } from './BlockState.js'
 import { BlockPos } from "./BlockPos.js"
 import { RailShape } from "./RailShape.js"
 import { Entity } from './Entity.js';
+import { AbstractMinecartEntity } from './AbstractMinecartEntity.js';
 
 export const Direction = Object.freeze({
     DOWN: new Vec3i(0, -1, 0),
@@ -18,7 +19,7 @@ interface GridType {
 }
 
 export class World {
-    entities: Entity[] = []
+    entities: AbstractMinecartEntity[] = []
     grid: GridType = {}
     MINECART_MAX_SPEED = 34
 

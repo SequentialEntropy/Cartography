@@ -8,6 +8,8 @@ export class AbstractMinecartEntity extends Entity {
         super("minecart", world);
         this.onRail = false;
         this.yawFlipped = false;
+        this.canvasLine = [];
+        this.clearCanvasLine = true;
         this.pos = pos;
         this.yaw = yaw;
         this.velocity = vel; // block per gametick (1/20), not block per second

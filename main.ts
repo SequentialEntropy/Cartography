@@ -5,12 +5,13 @@ import { Vec3d } from "./world/Vec3d.js"
 import { World } from "./world/World.js"
 
 const WORLD = new World()
-const TPS = 20
+// const TPS = 20
+const TPS = 1
 fetch("assets/curve_test.json")
 .then(response => response.json())
 .then(json => WORLD.import(json))
 WORLD.entities = [
-    new AbstractMinecartEntity(Vec3d.fromXYZ(0, 0, 0), Vec3d.fromXYZ(0.8, 0, 0), 0, WORLD),
+    new AbstractMinecartEntity(Vec3d.fromXYZ(0, 0, 0), Vec3d.fromXYZ(1.6, 0, 0), 0, WORLD),
 ]
 // fetch("assets/auto_layout.json")
 // .then(response => response.json())

@@ -9,6 +9,8 @@ export class ExperimentalMinecartController {
         this.minecart = minecart;
     }
     tick() {
+        if (this.minecart.clearCanvasLine)
+            this.minecart.canvasLine = [[this.minecart.getX(), this.minecart.getZ()]];
         // if (this.getWorld() instanceof ServerWorld serverWorld) {
         const serverWorld = this.getWorld();
         if (serverWorld) {
@@ -340,6 +342,7 @@ export class ExperimentalMinecartController {
                 }
                 // Actually move the minecart to the new position
                 this.minecart.move(0 /* MovementType.SELF */, predictedPosition.subtractVec3d(currentPosition));
+                this.minecart.canvasLine.push([predictedPosition.x, predictedPosition.z]);
                 // Check the block at the new position for rail information
                 // let blockState = this.getWorld().getBlockState(BlockPos.ofFloored(predictedPosition));
                 //     if (isSloped) { // If moving on a sloped track

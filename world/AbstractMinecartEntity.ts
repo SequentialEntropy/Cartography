@@ -10,6 +10,8 @@ export class AbstractMinecartEntity extends Entity {
     onRail = false
     yawFlipped = false
     controller
+    canvasLine: [number, number][] = []
+    clearCanvasLine = true
 
     constructor(pos: Vec3d, vel: Vec3d, yaw: number, world: World) {
         super("minecart", world)
