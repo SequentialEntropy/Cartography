@@ -16,7 +16,15 @@ export let selectedTool = ToolTypes.NS
 
 /*
 <div id="toolbar">
-    <img />
+    <!-- DYNAMIC TOOLS -->
+    <span id="tools">
+        <img />
+        <img />
+        <img />
+        ...
+    </span>
+
+    <!-- STATIC TOOLS -->
     <img />
     <img />
     ...
@@ -24,9 +32,8 @@ export let selectedTool = ToolTypes.NS
 */
 
 export function Toolbar(WORLD: World) {
-    const Toolbar = document.getElementById("toolbar")
-
-    if (!Toolbar) throw new Error("#toolbar not found - unable to load toolbar")
+    const Toolbar = document.getElementById("tools")
+    if (!Toolbar) throw new Error("#tools not found - unable to load toolbar")
     
     for (const tool in ToolTypes) {
         const Icon = document.createElement("img")
@@ -43,14 +50,6 @@ export function Toolbar(WORLD: World) {
 
         Toolbar.appendChild(Icon)
     }
-
-    const Label = document.createElement("label")
-    Label.htmlFor = "upload"
-    Toolbar.appendChild(Label)
-
-    const UploadIcon = document.createElement("img")
-    UploadIcon.src = "assets/bundle.png"
-    Label.appendChild(UploadIcon)
 
     const UploadButton = document.getElementById("upload")
     if (!UploadButton) throw new Error("#upload not found - unable to load upload button")
@@ -70,18 +69,13 @@ export function Toolbar(WORLD: World) {
         reader.readAsText(file);
     }
 
-    const DownloadIcon = document.createElement("img")
-    const downloadAnchor = document.createElement("a");
-    DownloadIcon.src = "assets/bundle_open_front.png"
-    DownloadIcon.addEventListener("click", () => {
+    const DownloadButton = document.getElementById("download")
+    if (!DownloadButton) throw new Error("#download not found - unable to load download button")
+    DownloadButton.onclick = () => {
+        const downloadAnchor = document.createElement("a");
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(WORLD.grid));
         downloadAnchor.setAttribute("href", dataStr);
         downloadAnchor.setAttribute("download", "track_layout.json");
         downloadAnchor.click();
-    })
-    Toolbar.appendChild(DownloadIcon)
-
-    const fpsMeter = document.createElement("span")
-    fpsMeter.id = "fpsMeter"
-    Toolbar.appendChild(fpsMeter)
+    }
 }
