@@ -272,7 +272,7 @@ export function Canvas(WORLD: World) {
         }
 
         const fps = 1000 / msPerFrame
-        if (fpsMeter) fpsMeter.textContent = `FPS: ${fps.toFixed(2)}`
+        if (fpsMeter) fpsMeter.textContent = `FPS: ${fps.toFixed(0)}`
 
         requestAnimationFrame(animationLoop)
     }

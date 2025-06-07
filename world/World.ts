@@ -61,6 +61,6 @@ export class World {
         markDirty()
 
         const tps = 1000 / mspt
-        if (tpsMeter) tpsMeter.textContent = `TPS: ${tps.toFixed(2)}`
+        if (tpsMeter) tpsMeter.textContent = `TPS: ${tps.toFixed(0)}`
     }
 }
