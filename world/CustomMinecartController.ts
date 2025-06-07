@@ -1,13 +1,19 @@
 import { RailShape } from './RailShape.js';
 import { MathHelper } from "./MathHelper.js";
 import { Vec3d } from "../world/Vec3d.js";
-import { World } from "../world/World.js";
+import { Direction, World } from "../world/World.js";
 import { MovementType } from './MovementType.js';
 import { AbstractMinecartEntity } from './AbstractMinecartEntity.js';
 import { AbstractRailBlock } from './AbstractRailBlock.js';
 import { BlockPos } from './BlockPos.js';
 import { BlockState } from './BlockState.js';
+import { Vec3i } from './Vec3i.js';
 import { MinecartController } from './MinecartController.js';
+
+const LOOKAHEAD_DISTANCE = 30
+
+// Raycast distance to smoothen derailment correction jerk
+const CHECK_FOR_RAIL_AHEAD = 15
 
 export class CustomMinecartController extends MinecartController {
     stagingLerpSteps = []
@@ -161,113 +167,304 @@ export class CustomMinecartController extends MinecartController {
         }
     }
 
-    // TODO: public void moveOnRail(ServerWorld world)
     moveOnRail(world: World) {
-        for (const moveIteration = new MoveIteration(); moveIteration.shouldContinue() && this.minecart.isAlive(); moveIteration.initial = false) {
-            // Get the current velocity of the minecart
-            let currentVelocity = this.getVelocity();
-            // Get the position of the rail or the cart itself
-            let blockPos = this.minecart.getRailOrMinecartPos();
-            // Get the block state at that position
-            let blockState = this.getWorld().getBlockState(blockPos);
-            // Check whether the current block is a rail
-            let isOnRail = AbstractRailBlock.isRail(blockState);
+        const moveIteration = new MoveIteration()
+        // Get the current velocity of the minecart
+        let currentVelocity = this.getVelocity();
+        // Get the position of the rail or the cart itself
+        let blockPos = this.minecart.getRailOrMinecartPos();
+        // Get the block state at that position
+        let blockState = this.getWorld().getBlockState(blockPos);
+        // Check whether the current block is a rail
+        let isOnRail = AbstractRailBlock.isRail(blockState);
+        
+        // Sync the minecart's "on rail" status
+        if (this.minecart.isOnRail() != isOnRail) {
+            this.minecart.setOnRail(isOnRail);
+            // Adjust the cart’s position to match the rail orientation
+            this.adjustToRail(blockPos, blockState, false);
+        }
 
-            // Sync the minecart's "on rail" status
-            if (this.minecart.isOnRail() != isOnRail) {
-                this.minecart.setOnRail(isOnRail);
-                // Adjust the cart’s position to match the rail orientation
-                this.adjustToRail(blockPos, blockState, false);
+        if (isOnRail) {
+            // Trigger landing logic (e.g., for fall damage or sounds)
+            this.minecart.onLanding();
+            // Reset internal position state (likely used for interpolation)
+            this.minecart.resetPosition();
+
+            // Special handling for activator rails (which may trigger events)
+            // if (blockState.isOf(Blocks.ACTIVATOR_RAIL)) {
+            //     this.minecart.onActivatorRail(blockPos.getX(), blockPos.getY(), blockPos.getZ(), (Boolean)blockState.get(PoweredRailBlock.POWERED));
+            // }
+
+            // Determine rail shape (e.g., straight, curved, sloped)
+            let railShape = blockState.get() as RailShape
+
+            // Calculate new velocity along the rail
+            let adjustedVelocity = this.calcNewHorizontalVelocity(world, currentVelocity.getHorizontal(), moveIteration, blockPos, blockState, railShape);
+
+            // Update remaining movement distance for this iteration
+            if (moveIteration.initial) {
+                moveIteration.remainingMovement = adjustedVelocity.horizontalLength();
+            } else {
+                moveIteration.remainingMovement += (adjustedVelocity.horizontalLength() - currentVelocity.horizontalLength());
             }
 
-            if (isOnRail) {
-                // Trigger landing logic (e.g., for fall damage or sounds)
-                this.minecart.onLanding();
-                // Reset internal position state (likely used for interpolation)
-                this.minecart.resetPosition();
-
-                // Special handling for activator rails (which may trigger events)
-                // if (blockState.isOf(Blocks.ACTIVATOR_RAIL)) {
-                //     this.minecart.onActivatorRail(blockPos.getX(), blockPos.getY(), blockPos.getZ(), (Boolean)blockState.get(PoweredRailBlock.POWERED));
-                // }
-
-                // Determine rail shape (e.g., straight, curved, sloped)
-                let railShape = blockState.get() as RailShape
-
-                // Calculate new velocity along the rail
-                let adjustedVelocity = this.calcNewHorizontalVelocity(world, currentVelocity.getHorizontal(), moveIteration, blockPos, blockState, railShape);
-
-                // Update remaining movement distance for this iteration
-                if (moveIteration.initial) {
-                    moveIteration.remainingMovement = adjustedVelocity.horizontalLength();
-                } else {
-                    moveIteration.remainingMovement += (adjustedVelocity.horizontalLength() - currentVelocity.horizontalLength());
+            if (adjustedVelocity.length() < 1.0E-5) {
+                this.setVelocityVec3d(Vec3d.ZERO);
+            } else {
+                // Choose facing direction
+                let [ahead, behind] = AbstractMinecartEntity.getAdjacentRailPositionsByShape(railShape)
+                if (adjustedVelocity.dotProduct(Vec3d.fromVec3i(ahead)) < adjustedVelocity.dotProduct(Vec3d.fromVec3i(behind))) {
+                    const temp = ahead
+                    ahead = behind
+                    behind = temp
                 }
+
+                // Get rails ahead
+                const points: {pos: Vec3d, distance: number}[] = this.lookAhead(blockPos, ahead, LOOKAHEAD_DISTANCE)
+                this.minecart.canvasLines.push({
+                    points: points.map(point => point.pos),
+                    color: "#ff0000",
+                })
+
+                const newVelocity = this.derailmentAdjustedVelocity(adjustedVelocity, blockPos, points)
 
                 // Apply new velocity
-                this.setVelocityVec3d(adjustedVelocity);
-                // Move the cart along the track and update the remaining distance
-                moveIteration.remainingMovement = this.minecart.moveAlongTrack(blockPos, railShape, moveIteration.remainingMovement);
-            } else {
-                // If not on a rail, handle off-rail movement
-                this.minecart.moveOffRail(world);
-                moveIteration.remainingMovement = 0.0;
+                this.setVelocityVec3d(newVelocity)
+                this.minecart.move(MovementType.SELF, newVelocity);
             }
+        } else {
+            // If not on a rail, handle off-rail movement
+            this.minecart.moveOffRail(world);
+            moveIteration.remainingMovement = 0.0;
+        }
 
-            // Determine the position delta for orientation and interpolation
-            let currentPosition = this.getPos();
-            let deltaPosition = currentPosition.subtractVec3d(this.minecart.getLastRenderPos());
-            let deltaLength = deltaPosition.length();
+        // Determine the position delta for orientation and interpolation
+        let currentPosition = this.getPos();
+        let deltaPosition = currentPosition.subtractVec3d(this.minecart.getLastRenderPos());
+        let deltaLength = deltaPosition.length();
 
-            if (deltaLength > 1.0E-5) {
-                if (!(deltaPosition.horizontalLengthSquared() > 1.0E-5)) {
-                    // TODO
-                    // if (!this.minecart.isOnRail()) {
-                    //     let adjustedPitch = this.minecart.isOnGround() ? 0.0 : MathHelper.lerpAngleDegrees(0.2, this.getPitch(), 0.0);
-                    //     this.setPitch(adjustedPitch);
-                    // }
-                } else {
-                    // Set yaw and pitch based on direction of movement
-                    let yaw = 180.0 - (Math.atan2(deltaPosition.z, deltaPosition.x) * 180.0 / Math.PI);
-                    let pitch = this.minecart.isOnGround() && !this.minecart.isOnRail()
-                            ? 0.0
-                            : 90.0 - (Math.atan2(deltaPosition.horizontalLength(), deltaPosition.y) * 180.0 / Math.PI);
+        if (deltaLength > 1.0E-5) {
+            if (!(deltaPosition.horizontalLengthSquared() > 1.0E-5)) {
+                // TODO
+                // if (!this.minecart.isOnRail()) {
+                //     let adjustedPitch = this.minecart.isOnGround() ? 0.0 : MathHelper.lerpAngleDegrees(0.2, this.getPitch(), 0.0);
+                //     this.setPitch(adjustedPitch);
+                // }
+            } else {
+                // Set yaw and pitch based on direction of movement
+                let yaw = 180.0 - (Math.atan2(deltaPosition.z, deltaPosition.x) * 180.0 / Math.PI);
+                let pitch = this.minecart.isOnGround() && !this.minecart.isOnRail()
+                        ? 0.0
+                        : 90.0 - (Math.atan2(deltaPosition.horizontalLength(), deltaPosition.y) * 180.0 / Math.PI);
 
-                    if (this.minecart.isYawFlipped()) {
-                        yaw += 180.0;
-                        pitch *= -1.0;
-                    }
-
-                    this.setAngles(yaw, pitch);
+                if (this.minecart.isYawFlipped()) {
+                    yaw += 180.0;
+                    pitch *= -1.0;
                 }
 
-//                this.broadcast("stagingLerpSteps (HIGH deltaLength)");
-                // Add to interpolation steps for rendering (likely client-side)
-                // this.stagingLerpSteps.push(new Step(
-                //         currentPosition,
-                //         this.getVelocity(),
-                //         this.getYaw(),
-                //         this.getPitch(),
-                //         Math.min(deltaLength, this.getMaxSpeed(world))
-                // ));
-            } else if (currentVelocity.horizontalLengthSquared() > 0.0) {
-//                this.broadcast("stagingLerpSteps (LOW  deltaLength)");
-                // If not moving significantly but still has horizontal speed
-                // this.stagingLerpSteps.push(new Step(
-                //         currentPosition,
-                //         this.getVelocity(),
-                //         this.getYaw(),
-                //         this.getPitch(),
-                //         1.0));
+                this.setAngles(yaw, pitch);
             }
 
-            // If moved or in the first iteration, handle collision checks
-            // if (deltaLength > 1.0E-5 || moveIteration.initial) {
-            //     this.minecart.tickBlockCollision(); // Called twice for redundancy or separate pass types
-            //     this.minecart.tickBlockCollision();
-            // }
+    //                this.broadcast("stagingLerpSteps (HIGH deltaLength)");
+            // Add to interpolation steps for rendering (likely client-side)
+            // this.stagingLerpSteps.push(new Step(
+            //         currentPosition,
+            //         this.getVelocity(),
+            //         this.getYaw(),
+            //         this.getPitch(),
+            //         Math.min(deltaLength, this.getMaxSpeed(world))
+            // ));
+        } else if (currentVelocity.horizontalLengthSquared() > 0.0) {
+    //                this.broadcast("stagingLerpSteps (LOW  deltaLength)");
+            // If not moving significantly but still has horizontal speed
+            // this.stagingLerpSteps.push(new Step(
+            //         currentPosition,
+            //         this.getVelocity(),
+            //         this.getYaw(),
+            //         this.getPitch(),
+            //         1.0));
+        }
+
+        // If moved or in the first iteration, handle collision checks
+        // if (deltaLength > 1.0E-5 || moveIteration.initial) {
+        //     this.minecart.tickBlockCollision(); // Called twice for redundancy or separate pass types
+        //     this.minecart.tickBlockCollision();
+        // }
+    }
+    lookAhead(blockPos: BlockPos, dir: Vec3i, distance: number) {
+        const positions: {pos: Vec3d, distance: number}[] = []
+        let headed = dir
+        let currentPos = Vec3d.ofBottomCenter(blockPos).addXYZ(0, 0.1, 0)
+
+        for (let i = 0; i < distance; i++) {
+            let currentState = this.getWorld().getBlockState(BlockPos.ofFloored(currentPos))
+
+            // Check block below predicted in case there is a descending rail
+            if (!AbstractRailBlock.isRail(currentState)) {
+                const posBelow = currentPos.subtractXYZ(0, 1, 0)
+                const stateBelow = this.getWorld().getBlockState(BlockPos.ofFloored(posBelow))
+                if (!AbstractRailBlock.isRail(stateBelow)) {
+                    break
+                }
+                currentPos = posBelow
+                currentState = stateBelow
+            }
+
+            const currentShape = currentState.get() as RailShape
+
+            headed = this.next(new Vec3i(headed.getX(), 0, headed.getZ()), currentShape)
+            currentPos = currentPos.addVec3d(Vec3d.fromVec3i(headed))
+            positions.push({pos: currentPos, distance: i + 1})
+        }
+        return positions
+    }
+    next(headed: Vec3i, nextShape: RailShape) {
+        if (headed.equals(Direction.NORTH)) {
+            switch (nextShape) {
+                case RailShape.NORTH_SOUTH:
+                case RailShape.NORTH_EAST:
+                case RailShape.NORTH_WEST:
+                    return Direction.NORTH
+                case RailShape.SOUTH_EAST:
+                    return Direction.EAST
+                case RailShape.SOUTH_WEST:
+                    return Direction.WEST
+                default:
+                    throw new Error("INVALID HEADED DIRECTION")
+            }
+        } else if (headed.equals(Direction.SOUTH)) {
+            switch (nextShape) {
+                case RailShape.NORTH_SOUTH:
+                case RailShape.SOUTH_EAST:
+                case RailShape.SOUTH_WEST:
+                    return Direction.SOUTH
+                case RailShape.NORTH_EAST:
+                    return Direction.EAST
+                case RailShape.NORTH_WEST:
+                    return Direction.WEST
+                default:
+                    throw new Error("INVALID HEADED DIRECTION")
+            }
+        } else if (headed.equals(Direction.EAST)) {
+            switch (nextShape) {
+                case RailShape.EAST_WEST:
+                case RailShape.NORTH_EAST:
+                case RailShape.SOUTH_EAST:
+                    return Direction.EAST
+                case RailShape.NORTH_WEST:
+                    return Direction.NORTH
+                case RailShape.SOUTH_WEST:
+                    return Direction.SOUTH
+                default:
+                    throw new Error("INVALID HEADED DIRECTION")
+            }
+        } else if (headed.equals(Direction.WEST)) {
+            switch (nextShape) {
+                case RailShape.EAST_WEST:
+                case RailShape.NORTH_WEST:
+                case RailShape.SOUTH_WEST:
+                    return Direction.WEST
+                case RailShape.NORTH_EAST:
+                    return Direction.NORTH
+                case RailShape.SOUTH_EAST:
+                    return Direction.SOUTH
+                default:
+                    throw new Error("INVALID HEADED DIRECTION")
+            }
+        }
+        throw new Error("INVALID HEADED DIRECTION")
+    }
+    /**
+     * 
+     * @param points Lookahead points to consider
+     */
+    averageDirection(currentPos: Vec3d, points: {pos: Vec3d, distance: number}[]) {
+        let totalX = 0
+        let totalY = 0
+        let totalZ = 0
+        let totalWeight = 0
+
+        for (let i = 0; i < points.length; i++) {
+            const p = points[i];
+            const weight = 1
+            // const weight = 1 / (0.25 * p.distance + 1);
+            // const weight = (1 / p.distance) + 1
+            // const weight = Math.exp(-0.5 * Math.pow(Math.abs(i - points.length) / points.length, 2)); // Gaussian-like
+            totalX += (p.pos.x - currentPos.x) * weight;
+            totalY += (p.pos.y - currentPos.y) * weight;
+            totalZ += (p.pos.z - currentPos.z) * weight;
+            totalWeight += weight;
+        }
+
+        return Vec3d.fromXYZ(
+            totalX / totalWeight,
+            totalY / totalWeight,
+            totalZ / totalWeight
+        ).normalize()
+    }
+    derailmentAdjustedVelocity(adjustedVelocity: Vec3d, blockPos: BlockPos, points: {pos: Vec3d, distance: number}[]) {
+        function toKey(vec: Vec3i) {
+            const block = BlockPos.ofFloored(vec)
+            return `${block.getX()},${block.getZ()}`
         }
         
+        // Store rails ahead in set
+        const pointsSet = new Set(points.map(point => toKey(point.pos)))
+        pointsSet.add(toKey(blockPos))
+
+        // Get speed and current position
+        const currentPos = this.getPos()
+        const currentSpeed = adjustedVelocity.length()
+        
+        let raycastCache = Array(Math.max(CHECK_FOR_RAIL_AHEAD, 1)).fill(null)
+
+        // Derailment prevention - repeatedly retry to smoothen the curve with fewer samples until the predicted position lands on the predicted path
+        for (let i = points.length; i > 0; i--) {
+            const averageDirection = this.averageDirection(currentPos, points.slice(0, i))
+            const averageVelocity = averageDirection.multiplyConst(currentSpeed)
+
+            const hue = (240 + (60 * (points.length - i))) % 360
+            this.minecart.canvasLines.push({
+                points: [currentPos, currentPos.addVec3d(averageVelocity)],
+                color: `hsl(${hue}, 100%, 50%)`
+            })
+
+            const predictedBlock = BlockPos.ofFloored(currentPos.addVec3d(averageVelocity))
+            if (!pointsSet.has(toKey(predictedBlock))) {
+                continue
+            }
+
+            // if (0 === CHECK_FOR_RAIL_AHEAD) return averageVelocity
+
+            if (raycastCache[0] === null) {
+                raycastCache[0] = averageVelocity
+            }
+
+            // Mark direction as valid if all blocks hit by the raycast is a rail
+            for (let distance = 1; distance <= CHECK_FOR_RAIL_AHEAD; distance++) {
+                const scaledVelocity = averageDirection.multiplyConst(distance)
+                // const raycastBlock = BlockPos.ofFloored(currentPos.addVec3d(scaledVelocity))
+                // If ray lands on a rail
+                if (!pointsSet.has(toKey(currentPos.addVec3d(scaledVelocity)))) break
+
+                // If it's the most samples for the given raycast distance, register it
+                if (distance === CHECK_FOR_RAIL_AHEAD) {
+                    return averageVelocity
+                }
+                if (raycastCache[distance] === null) {
+                    raycastCache[distance] = averageVelocity
+                }
+            }
+        }
+
+        for (let velocity of raycastCache.reverse()) {
+            if (velocity != null) {
+                return velocity
+            }
+        }
+
+        return adjustedVelocity
     }
 
     calcNewHorizontalVelocity(world: World, horizontalVelocity: Vec3d, iteration: MoveIteration, pos: BlockPos, railState: BlockState, railShape: RailShape) {
@@ -332,102 +529,6 @@ export class CustomMinecartController extends MinecartController {
 
     // TODO: private Vec3d decelerateFromPoweredRail(Vec3d velocity, BlockState railState)
     // TODO: private Vec3d accelerateFromPoweredRail(Vec3d velocity, BlockPos railPos, BlockState railState)
-
-    // TODO
-    moveAlongTrack(blockPos: BlockPos, railShape: RailShape, remainingDistance: number) {
-        // If there's almost no movement left, stop the cart
-        if (remainingDistance < 1.0E-5) {
-            return 0.0;
-        } else {
-            let currentPosition = this.getPos();
-
-            // Get the two directional vectors associated with the rail shape
-            let railDirections = AbstractMinecartEntity.getAdjacentRailPositionsByShape(railShape);
-            let railDirA = railDirections[0];
-            let railDirB = railDirections[1];
-
-            let currentVelocity = this.getVelocity().getHorizontal(); // Current horizontal velocity
-
-            // If the velocity is very small, stop the cart
-            if (currentVelocity.length() < 1.0E-5) {
-                this.setVelocityVec3d(Vec3d.ZERO);
-                return 0.0;
-            } else {
-                // Check if the track is sloped (change in Y)
-                let isSloped = railDirA.getY() != railDirB.getY();
-
-                // Scale to half-length
-                let scaledDirA = Vec3d.fromVec3i(railDirA).multiplyConst(0.5).getHorizontal();
-                let scaledDirB = Vec3d.fromVec3i(railDirB).multiplyConst(0.5).getHorizontal();
-
-                // Choose the direction that's more aligned with current velocity
-                let travelDirection = currentVelocity.dotProduct(scaledDirA) < currentVelocity.dotProduct(scaledDirB)
-                        ? scaledDirB : scaledDirA;
-
-                // Compute target position a bit ahead in the chosen direction
-                let targetPosition = blockPos.toBottomCenterPos()
-                        .addVec3d(travelDirection)                                      // move halfway in direction
-                        .addXYZ(0.0, 0.1, 0.0)                               // slight vertical offset
-                        .addVec3d(travelDirection.normalize().multiplyConst(1.0E-5)); // tiny nudge for precision
-
-                // // If track is sloped and cart is not ascending, raise the target position
-                // if (isSloped && !this.ascends(currentVelocity, railShape)) {
-                //     targetPosition = targetPosition.add(0.0, 1.0, 0.0);
-                // }
-
-                // Recalculate velocity to point toward the adjusted target position
-                let targetDirection = targetPosition.subtractVec3d(this.getPos()).normalize();
-                currentVelocity = targetDirection.multiplyConst(currentVelocity.length() / targetDirection.horizontalLength());
-
-                // Predict next position based on remaining movement
-                let predictedPosition = currentPosition.addVec3d(currentVelocity.normalize().multiplyConst(
-                        remainingDistance * (isSloped ? MathHelper.SQUARE_ROOT_OF_TWO : 1.0)));
-                
-                // If we're going to overshoot the target, clamp to it and reduce remaining movement
-                if (currentPosition.squaredDistanceTo(targetPosition) <= currentPosition.squaredDistanceTo(predictedPosition)) {
-                    remainingDistance = targetPosition.subtractVec3d(predictedPosition).horizontalLength();
-                    predictedPosition = targetPosition;
-                } else {
-                    remainingDistance = 0.0;
-                }
-
-                // Actually move the minecart to the new position
-                this.minecart.move(MovementType.SELF, predictedPosition.subtractVec3d(currentPosition));
-
-                // Check the block at the new position for rail information
-                // let blockState = this.getWorld().getBlockState(BlockPos.ofFloored(predictedPosition));
-
-            //     if (isSloped) { // If moving on a sloped track
-            //         if (AbstractRailBlock.isRail(blockState)) {
-            //             RailShape railShape2 = blockState.get(((AbstractRailBlock)blockState.getBlock()).getShapeProperty());
-            //             // Stop if the cart transitions from a V-shaped track to a rest position
-            //             if (this.restOnVShapedTrack(railShape, railShape2)) {
-            //                 return 0.0;
-            //             }
-            //         }
-
-            //         // Calculate vertical adjustment needed
-            //         double distanceToTarget = targetPosition.getHorizontal().distanceTo(this.getPos().getHorizontal());
-            //         double predictedY = targetPosition.y + (this.ascends(currentVelocity, railShape) ? distanceToTarget : -distanceToTarget);
-
-            //         // Adjust vertical position if minecart is below target height
-            //         if (this.getPos().y < predictedY) {
-            //             this.setPos(this.getPos().x, predictedY, this.getPos().z);
-            //         }
-            //     }
-
-                // If very little movement occurred, stop the cart
-                if (this.getPos().distanceTo(currentPosition) < 1.0E-5 && predictedPosition.distanceTo(currentPosition) > 1.0E-5) {
-                    this.setVelocityVec3d(Vec3d.ZERO);
-                    return 0.0;
-                } else {
-                    // Otherwise, update velocity and return remaining movement
-                    this.setVelocityVec3d(currentVelocity);
-                    return remainingDistance;
-                }
-            }
-        }
-    }
 
     // TODO: private boolean restOnVShapedTrack(RailShape currentRailShape, RailShape newRailShape)
 
