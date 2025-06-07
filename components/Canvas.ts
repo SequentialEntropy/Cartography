@@ -41,9 +41,12 @@ export function Canvas(WORLD: World) {
     updateCanvasSize()
 
     const textures: Record<string, HTMLImageElement> = {}
-    const TILE_SIZE = 16
 
+    const TILE_SIZE = 16
     const ZOOM_SPEED = 0.01
+    const RENDER_IMAGE_THRESHOLD = 8
+    const MINECART_ALPHA = 0.8
+    const LINE_WIDTH = 3
 
     for (const shapeName in RailShape) {
         const shape = RailShape[shapeName as keyof typeof RailShape]
@@ -191,6 +194,8 @@ export function Canvas(WORLD: World) {
     function drawRotatedImage(image: HTMLImageElement, x: number, y: number, angle: number, width: number, height: number) {
         ctx.save(); // Save current state
 
+        ctx.globalAlpha = MINECART_ALPHA
+
         // Move to the center of the image
         ctx.translate(x + width / 2, y + height / 2);
         
@@ -209,7 +214,7 @@ export function Canvas(WORLD: World) {
         ctx.translate(TRANSFORM.x, TRANSFORM.y)
         ctx.scale(TRANSFORM.scale, TRANSFORM.scale)
 
-        if (TRANSFORM.scale * TILE_SIZE < 8) {
+        if (TRANSFORM.scale * TILE_SIZE < RENDER_IMAGE_THRESHOLD) {
             ctx.fillStyle = "#b8afa2"
             for (const key in WORLD.grid) {
                 const [x, y] = key.split(",").map(Number)
@@ -237,6 +242,7 @@ export function Canvas(WORLD: World) {
             drawRotatedImage(textures.minecart, (cart.pos.x - 0.625) * TILE_SIZE, (cart.pos.z - 0.5) * TILE_SIZE, cart.yaw, TILE_SIZE * 1.25, TILE_SIZE)
 
             if (cart.canvasLine.length > 1) {
+                ctx.lineWidth = LINE_WIDTH
                 ctx.beginPath()
                 ctx.moveTo(cart.canvasLine[0][0] * TILE_SIZE, cart.canvasLine[0][1] * TILE_SIZE)
                 for (let i = 1; i < cart.canvasLine.length; i++) {
