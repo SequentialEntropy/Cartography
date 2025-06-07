@@ -1,12 +1,11 @@
 import { AbstractMinecartEntity } from "./world/AbstractMinecartEntity.js"
-import { Canvas, markDirty } from "./components/Canvas.js"
+import { Canvas } from "./components/Canvas.js"
 import { Toolbar } from "./components/Toolbar.js"
 import { Vec3d } from "./world/Vec3d.js"
 import { World } from "./world/World.js"
 
 const WORLD = new World()
-// const TPS = 20
-const TPS = 1
+const TPS = 20
 
 async function curvePreset() {
     const response = await fetch("assets/curve_test.json")
@@ -31,19 +30,6 @@ async function autoPreset() {
 
 Toolbar(WORLD)
 Canvas(WORLD)
+
 autoPreset()
-
-function gameLoop() {
-    // const now = performance.now()
-    // const mspt = now - lastTick
-    // lastTick = now
-
-    WORLD.tick()
-    markDirty()
-
-    // const tps = 1000 / mspt
-    // tpsMeter.textContent = `TPS: ${tps.toFixed(2)}`
-}
-
-setInterval(gameLoop, 1000 / TPS)
-// gameLoop()
+setInterval(() => WORLD.gameLoop(), 1000 / TPS)

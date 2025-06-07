@@ -48,4 +48,16 @@ export class World {
             entity.tick()
         }
     }
+
+    gameLoop() {
+        // const now = performance.now()
+        // const mspt = now - lastTick
+        // lastTick = now
+
+        this.tick()
+        markDirty()
+
+        // const tps = 1000 / mspt
+        // tpsMeter.textContent = `TPS: ${tps.toFixed(2)}`
+    }
 }
