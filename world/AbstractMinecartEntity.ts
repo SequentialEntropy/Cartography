@@ -1,6 +1,6 @@
 import { BlockPos } from "./BlockPos.js"
 import { Entity } from "./Entity.js"
-import { ExperimentalMinecartController } from "./ExperimentalMinecartController.js"
+import { MinecartController } from "./MinecartController.js"
 import { MovementType } from "./MovementType.js"
 import { Position } from "./Position.js"
 import { RailShape } from "./RailShape.js"
@@ -12,15 +12,15 @@ const TRAIL_LENGTH = 50
 export class AbstractMinecartEntity extends Entity {
     onRail = false
     yawFlipped = false
-    controller
+    controller: MinecartController
     canvasLines: {points: Position[], color: string}[] = [{points: [], color: "#00ff00"}]
 
-    constructor(pos: Vec3d, vel: Vec3d, yaw: number, world: World) {
+    constructor(pos: Vec3d, vel: Vec3d, yaw: number, world: World, Controller: typeof MinecartController) {
         super("minecart", world)
         this.pos = pos
         this.yaw = yaw
         this.velocity = vel // block per gametick (1/20), not block per second
-        this.controller = new ExperimentalMinecartController(this)
+        this.controller = new Controller(this)
     }
 
     tick() {
