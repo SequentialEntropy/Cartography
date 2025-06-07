@@ -25,3 +25,5 @@
         - Reset tick counter to 0 when there are no active minecarts
 
 - Profiler for measuring curve smoothing performance (cumulative sum of velocity deltaAngle per tick along path, lower = better & smoother, higher = worse & rougher)
+
+- Deploy project on netlify, with github actions to auto build-and-deploy on new commit
