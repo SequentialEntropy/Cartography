@@ -30,8 +30,18 @@ async function autoPreset() {
     ]
 }
 
+async function comparisonPreset() {
+    const response = await fetch("assets/auto_layout.json")
+    const json = await response.json()
+    WORLD.import(json)
+    WORLD.entities = [
+        new AbstractMinecartEntity(Vec3d.fromXYZ(-185.5, 0, 15.5), Vec3d.fromXYZ(1.6, 0, 0), 0, WORLD, CustomMinecartController),
+        new AbstractMinecartEntity(Vec3d.fromXYZ(-185.5, 0, 15.5), Vec3d.fromXYZ(1.6, 0, 0), 0, WORLD, ExperimentalMinecartController),
+    ]
+}
+
 Toolbar(WORLD)
 Canvas(WORLD)
 
-autoPreset()
+comparisonPreset()
 setInterval(() => WORLD.gameLoop(), 1000 / TPS)
