@@ -19,10 +19,13 @@ interface GridType {
     [propName: string]: string
 }
 
+const tpsMeter = document.getElementById("tpsMeter")
+
 export class World {
     entities: AbstractMinecartEntity[] = []
     grid: GridType = {}
     MINECART_MAX_SPEED = 34
+    lastTickTime = performance.now()
 
     constructor() {}
 
@@ -50,14 +53,14 @@ export class World {
     }
 
     gameLoop() {
-        // const now = performance.now()
-        // const mspt = now - lastTick
-        // lastTick = now
+        const now = performance.now()
+        const mspt = now - this.lastTickTime
+        this.lastTickTime = now
 
         this.tick()
         markDirty()
 
-        // const tps = 1000 / mspt
-        // tpsMeter.textContent = `TPS: ${tps.toFixed(2)}`
+        const tps = 1000 / mspt
+        if (tpsMeter) tpsMeter.textContent = `TPS: ${tps.toFixed(2)}`
     }
 }
