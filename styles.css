@@ -20,20 +20,23 @@ body {
 #toolbar {
     display: flex;
     padding: 0.2rem;
-    gap: 0.2rem;
+}
+
+#toolbar * {
+    height: 32px;
 }
 
 #toolbar img {
+    border: 2px solid transparent;
+    margin: 2px;
     width: 32px;
     height: 32px;
     image-rendering: pixelated;
-    padding: 2px;
     cursor: pointer;
 }
 
 #toolbar img.selected {
-    border: 2px solid #a2a2a2;
-    padding: 0;
+    border-color:#a2a2a2;
 }
 
 #toolbar img:hover {
