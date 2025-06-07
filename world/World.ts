@@ -20,12 +20,14 @@ interface GridType {
 }
 
 const tpsMeter = document.getElementById("tpsMeter")
+const tickCounter = document.getElementById("tickCounter")
 
 export class World {
     entities: AbstractMinecartEntity[] = []
     grid: GridType = {}
     MINECART_MAX_SPEED = 34
     lastTickTime = performance.now()
+    ticksElapsed = 0
 
     constructor() {}
 
@@ -58,9 +60,11 @@ export class World {
         this.lastTickTime = now
 
         this.tick()
+        this.ticksElapsed++
         markDirty()
 
         const tps = 1000 / mspt
         if (tpsMeter) tpsMeter.textContent = `TPS: ${tps.toFixed(0)}`
+        if (tickCounter) tickCounter.textContent = `Ticks Elapsed: ${this.ticksElapsed}`
     }
 }

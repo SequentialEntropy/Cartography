@@ -78,4 +78,21 @@ export function Toolbar(WORLD: World) {
         downloadAnchor.setAttribute("download", "track_layout.json");
         downloadAnchor.click();
     }
+
+    const tickcounter = document.getElementById("tickCounter")
+    if (tickcounter) {
+        let timeouts: number[] = []
+        let intervals: number[] = []
+        tickcounter.onmousedown = () => {
+            WORLD.gameLoop()
+            timeouts.push(setTimeout(() => {
+                intervals.push(setInterval(() => {WORLD.gameLoop()}, 50))
+            }, 250))
+        }
+        tickcounter.onmouseup = () => {
+            timeouts.forEach(e => clearTimeout(e))
+            intervals.forEach(e => clearInterval(e))
+        }
+        tickcounter.onmouseout = tickcounter.onmouseup
+    }
 }
