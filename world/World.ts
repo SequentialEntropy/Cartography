@@ -4,6 +4,7 @@ import { BlockPos } from "./BlockPos.js"
 import { RailShape } from "./RailShape.js"
 import { Entity } from './Entity.js';
 import { AbstractMinecartEntity } from './AbstractMinecartEntity.js';
+import { markDirty } from '../components/Canvas.js';
 
 export const Direction = Object.freeze({
     DOWN: new Vec3i(0, -1, 0),
@@ -39,6 +40,7 @@ export class World {
 
     import(json: {[propName: string]: string}) {
         Object.assign(this.grid, json);
+        markDirty()
     }
     
     tick() {
