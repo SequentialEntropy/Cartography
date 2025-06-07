@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES6",
-    "outDir": "js",
+    "outDir": "build",
     "strict": true
   }
 }
