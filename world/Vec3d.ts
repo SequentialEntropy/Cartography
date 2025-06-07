@@ -100,4 +100,8 @@ export class Vec3d implements Position {
 		const f = vec.z - this.z;
 		return d * d + e * e + f * f;
 	}
+
+    equals(vec: Vec3d) {
+        return (this.x === vec.x) && (this.y === vec.y) && (this.z === vec.z);
+    }
 }

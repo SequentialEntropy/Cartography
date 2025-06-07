@@ -16,4 +16,8 @@ export class Vec3i implements Position {
     getX() { return this.x }
     getY() { return this.y }
     getZ() { return this.z }
+
+    equals(vec: Vec3i) {
+        return (this.x === vec.x) && (this.y === vec.y) && (this.z === vec.z);
+    }
 }
