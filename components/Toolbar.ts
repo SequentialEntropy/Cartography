@@ -55,18 +55,19 @@ export function Toolbar(WORLD: World) {
     if (!UploadButton) throw new Error("#upload not found - unable to load upload button")
     UploadButton.onchange = e => {
         const target = e.target as HTMLInputElement;
-        const file = (target.files as FileList)[0];
-        const reader = new FileReader();
-        reader.onload = e => {
-            try {
-                const json = JSON.parse(e.target?.result as string);
-                WORLD.import(json);
-                markDirty()
-            } catch (err) {
-                alert("Invalid JSON file.");
-            }
-        };
-        reader.readAsText(file);
+        for (const file of target.files as FileList) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    const json = JSON.parse(e.target?.result as string);
+                    WORLD.import(json);
+                    markDirty()
+                } catch (err) {
+                    alert(`File ${file.name} contains invalid JSON.`);
+                }
+            };
+            reader.readAsText(file);
+        }
     }
 
     const DownloadButton = document.getElementById("download")
