@@ -5,7 +5,7 @@ import { RailShape } from "../world/RailShape.js"
 export const TRANSFORM = {
     x: 600,
     y: 250,
-    scale: 0.15,
+    scale: 2.4,
 }
 
 const MOUSE: {draw: boolean, lastPos: null | CanvasPosition} = {
@@ -42,11 +42,10 @@ export function Canvas(WORLD: World) {
 
     const textures: Record<string, HTMLImageElement> = {}
 
-    const TILE_SIZE = 16
     const ZOOM_SPEED = 0.01
     const RENDER_IMAGE_THRESHOLD = 8
     const MINECART_ALPHA = 0.8
-    const LINE_WIDTH = 3
+    const LINE_WIDTH = 0.1875
 
     for (const shapeName in RailShape) {
         const shape = RailShape[shapeName as keyof typeof RailShape]
@@ -179,8 +178,8 @@ export function Canvas(WORLD: World) {
     function canvasToGrid({x, y}: CanvasPosition) {
         const rect = CANVAS.getBoundingClientRect();
         return {
-            x: ((x - rect.left) - TRANSFORM.x) / (TILE_SIZE * TRANSFORM.scale),
-            z: ((y - rect.top) - TRANSFORM.y) / (TILE_SIZE * TRANSFORM.scale)
+            x: ((x - rect.left) - TRANSFORM.x) / TRANSFORM.scale,
+            z: ((y - rect.top) - TRANSFORM.y) / TRANSFORM.scale
         };
     }
 
@@ -211,14 +210,12 @@ export function Canvas(WORLD: World) {
     function render() {
         ctx.clearRect(0, 0, CANVAS.width, CANVAS.height)
         ctx.save()
-        ctx.translate(TRANSFORM.x, TRANSFORM.y)
-        ctx.scale(TRANSFORM.scale, TRANSFORM.scale)
 
-        if (TRANSFORM.scale * TILE_SIZE < RENDER_IMAGE_THRESHOLD) {
+        if (TRANSFORM.scale < RENDER_IMAGE_THRESHOLD) {
             ctx.fillStyle = "#b8afa2"
             for (const key in WORLD.grid) {
                 const [x, y] = key.split(",").map(Number)
-                ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+                ctx.fillRect((x * TRANSFORM.scale + TRANSFORM.x), (y * TRANSFORM.scale + TRANSFORM.y), TRANSFORM.scale, TRANSFORM.scale)
             }
         } else {
             for (const key in WORLD.grid) {
@@ -227,27 +224,34 @@ export function Canvas(WORLD: World) {
                 const img = textures[shape]
                 if (!img) {
                     ctx.fillStyle = "#ff0000"
-                    ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+                    ctx.fillRect((x * TRANSFORM.scale + TRANSFORM.x), (y * TRANSFORM.scale + TRANSFORM.y), TRANSFORM.scale, TRANSFORM.scale)
                     continue
                 } else if (!img.complete) {
                     ctx.fillStyle = "#b8afa2"
-                    ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+                    ctx.fillRect((x * TRANSFORM.scale + TRANSFORM.x), (y * TRANSFORM.scale + TRANSFORM.y), TRANSFORM.scale, TRANSFORM.scale)
                     continue
                 }
-                ctx.drawImage(img, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+                ctx.drawImage(img, (x * TRANSFORM.scale + TRANSFORM.x), (y * TRANSFORM.scale + TRANSFORM.y), TRANSFORM.scale, TRANSFORM.scale)
             }
         }
 
         for (const cart of WORLD.entities) {
-            drawRotatedImage(textures.minecart, (cart.pos.x - 0.625) * TILE_SIZE, (cart.pos.z - 0.5) * TILE_SIZE, cart.yaw, TILE_SIZE * 1.25, TILE_SIZE)
+            drawRotatedImage(
+                textures.minecart,
+                (cart.pos.x - 0.625) * TRANSFORM.scale + TRANSFORM.x,
+                (cart.pos.z - 0.5) * TRANSFORM.scale + TRANSFORM.y,
+                cart.yaw,
+                TRANSFORM.scale * 1.25,
+                TRANSFORM.scale
+            )
 
             for (const {points, color} of cart.canvasLines) {
                 if (points.length > 1) {
-                    ctx.lineWidth = LINE_WIDTH
+                    ctx.lineWidth = LINE_WIDTH * TRANSFORM.scale
                     ctx.beginPath()
-                    ctx.moveTo(points[0].getX() * TILE_SIZE, points[0].getZ() * TILE_SIZE)
+                    ctx.moveTo(points[0].getX() * TRANSFORM.scale + TRANSFORM.x, points[0].getZ() * TRANSFORM.scale + TRANSFORM.y)
                     for (let i = 1; i < points.length; i++) {
-                        ctx.lineTo(points[i].getX() * TILE_SIZE, points[i].getZ() * TILE_SIZE)
+                        ctx.lineTo(points[i].getX() * TRANSFORM.scale + TRANSFORM.x, points[i].getZ() * TRANSFORM.scale + TRANSFORM.y)
                     }
                     ctx.strokeStyle = color
                     ctx.stroke()
