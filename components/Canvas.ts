@@ -236,7 +236,7 @@ export function Canvas(WORLD: World) {
             ctx.fillStyle = "#b8afa2"
             for (const key in WORLD.grid) {
                 const [x, y] = key.split(",").map(Number)
-                ctx.fillRect((x * TRANSFORM.scale + TRANSFORM.x), (y * TRANSFORM.scale + TRANSFORM.y), TRANSFORM.scale, TRANSFORM.scale)
+                ctx.fillRect(Math.floor(x * TRANSFORM.scale + TRANSFORM.x), Math.floor(y * TRANSFORM.scale + TRANSFORM.y), Math.ceil(TRANSFORM.scale), Math.ceil(TRANSFORM.scale))
             }
         } else {
             for (const key in WORLD.grid) {
@@ -245,14 +245,14 @@ export function Canvas(WORLD: World) {
                 const img = textures[shape]
                 if (!img) {
                     ctx.fillStyle = "#ff0000"
-                    ctx.fillRect((x * TRANSFORM.scale + TRANSFORM.x), (y * TRANSFORM.scale + TRANSFORM.y), TRANSFORM.scale, TRANSFORM.scale)
+                    ctx.fillRect(Math.floor(x * TRANSFORM.scale + TRANSFORM.x), Math.floor(y * TRANSFORM.scale + TRANSFORM.y), Math.ceil(TRANSFORM.scale), Math.ceil(TRANSFORM.scale))
                     continue
                 } else if (!img.complete) {
                     ctx.fillStyle = "#b8afa2"
-                    ctx.fillRect((x * TRANSFORM.scale + TRANSFORM.x), (y * TRANSFORM.scale + TRANSFORM.y), TRANSFORM.scale, TRANSFORM.scale)
+                    ctx.fillRect(Math.floor(x * TRANSFORM.scale + TRANSFORM.x), Math.floor(y * TRANSFORM.scale + TRANSFORM.y), Math.ceil(TRANSFORM.scale), Math.ceil(TRANSFORM.scale))
                     continue
                 }
-                ctx.drawImage(img, (x * TRANSFORM.scale + TRANSFORM.x), (y * TRANSFORM.scale + TRANSFORM.y), TRANSFORM.scale, TRANSFORM.scale)
+                ctx.drawImage(img, Math.floor(x * TRANSFORM.scale + TRANSFORM.x), Math.floor(y * TRANSFORM.scale + TRANSFORM.y), Math.ceil(TRANSFORM.scale), Math.ceil(TRANSFORM.scale))
             }
         }
 
