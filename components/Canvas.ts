@@ -2,6 +2,12 @@ import { selectedTool, ToolTypes } from "./Toolbar.js"
 import { World } from "../world/World.js"
 import { RailShape } from "../world/RailShape.js"
 
+export const BACKGROUND: {
+    image: MipmapImage[],
+    x: number,
+    z: number
+}[] = []
+
 export const TRANSFORM = {
     x: 600,
     y: 250,
@@ -16,6 +22,10 @@ const MOUSE: {draw: boolean, lastPos: null | CanvasPosition} = {
 let DIRTY = true
 
 export function markDirty() { DIRTY = true }
+
+export const MIPMAP_LEVELS = 3
+
+export type MipmapImage = HTMLImageElement | HTMLCanvasElement
 
 interface GridPosition {
     x: number,
@@ -210,6 +220,17 @@ export function Canvas(WORLD: World) {
     function render() {
         ctx.clearRect(0, 0, CANVAS.width, CANVAS.height)
         ctx.save()
+
+        const current_level = Math.max(0, Math.min(MIPMAP_LEVELS, Math.floor(Math.log2(1 / TRANSFORM.scale))))
+        for (const bg of BACKGROUND) {
+            ctx.drawImage(
+                bg.image[current_level],
+                Math.floor(bg.x * TRANSFORM.scale + TRANSFORM.x),
+                Math.floor(bg.z * TRANSFORM.scale + TRANSFORM.y),
+                Math.ceil(bg.image[current_level].width * TRANSFORM.scale * Math.pow(2, current_level)),
+                Math.ceil(bg.image[current_level].height * TRANSFORM.scale * Math.pow(2, current_level)),
+            )
+        }
 
         if (TRANSFORM.scale < RENDER_IMAGE_THRESHOLD) {
             ctx.fillStyle = "#b8afa2"

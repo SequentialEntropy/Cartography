@@ -1,4 +1,4 @@
-import { markDirty } from "./Canvas.js"
+import { BACKGROUND, markDirty, MIPMAP_LEVELS, MipmapImage } from "./Canvas.js"
 import { World } from "../world/World.js"
 
 export enum ToolTypes {
@@ -56,17 +56,11 @@ export function Toolbar(WORLD: World) {
     UploadButton.onchange = e => {
         const target = e.target as HTMLInputElement;
         for (const file of target.files as FileList) {
-            const reader = new FileReader();
-            reader.onload = e => {
-                try {
-                    const json = JSON.parse(e.target?.result as string);
-                    WORLD.import(json);
-                    markDirty()
-                } catch (err) {
-                    alert(`File ${file.name} contains invalid JSON.`);
-                }
-            };
-            reader.readAsText(file);
+            if (file.type === "application/json") { // If file is JSON
+                importJSON(file, WORLD)
+            } else if (file.type.startsWith("image/")) { // If file is an image
+                importImage(file)
+            }
         }
     }
 
@@ -96,4 +90,56 @@ export function Toolbar(WORLD: World) {
         }
         tickcounter.onmouseout = tickcounter.onmouseup
     }
+}
+
+function importJSON(file: File, WORLD: World) {
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const json = JSON.parse(e.target?.result as string);
+            WORLD.import(json);
+            markDirty()
+        } catch (err) {
+            alert(`File ${file.name} contains invalid JSON.`);
+        }
+    };
+    reader.readAsText(file);
+}
+
+function importImage(file: File) {
+    const regex = /x(-?[0-9]+)_z(-?[0-9]+)/
+    const coordinates = regex.exec(file.name)
+
+    let img: MipmapImage = new Image()
+    img.src = URL.createObjectURL(file)
+
+    const x = (coordinates === null) ? 0 : Number.parseInt(coordinates[1])
+    const z = (coordinates === null) ? 0 : Number.parseInt(coordinates[2])
+
+    img.onload = () => {
+        BACKGROUND.push({
+            image: generate_mipmaps(img),
+            x: x,
+            z: z
+        })
+        markDirty()
+    }
+}
+
+function generate_mipmaps(img: MipmapImage) {
+    const mipmaps: MipmapImage[] = [img]
+
+    for (let i = 0; i < MIPMAP_LEVELS; i++) {
+        const canvas = document.createElement("canvas")
+        canvas.width = (img as HTMLImageElement).width / 2
+        canvas.height = (img as HTMLImageElement).height / 2
+
+        const ctx = canvas.getContext("2d")
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height)
+
+        mipmaps.push(canvas)
+        img = canvas
+    }
+
+    return mipmaps
 }
