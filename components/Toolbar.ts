@@ -10,14 +10,14 @@ export function cubicBezier(p0: number, p1: number, p2: number, p3: number, t: n
 }
 
 export enum ToolTypes {
-    NS = "NS",
-    EW = "EW",
-    NE = "NE",
-    SE = "SE",
-    NW = "NW",
-    SW = "SW",
-    ERASE = "ERASE",
-    BEZIER = "BEZIER"
+    NS = "NS.png",
+    EW = "EW.png",
+    NE = "NE.png",
+    SE = "SE.png",
+    NW = "NW.png",
+    SW = "SW.png",
+    ERASE = "ERASE.png",
+    BEZIER = "BEZIER.png",
 }
 
 export let selectedTool = ToolTypes.NS
@@ -47,9 +47,9 @@ export function Toolbar(WORLD: World) {
         const Icon = document.createElement("img")
 
         if (selectedTool === tool) Icon.classList.add("selected")
-        Icon.src = `assets/${tool}.png`
+        Icon.src = `assets/${ToolTypes[tool as keyof typeof ToolTypes]}`
         Icon.addEventListener("click", () => {
-            selectedTool = tool as ToolTypes
+            selectedTool = ToolTypes[tool as keyof typeof ToolTypes]
             Array.from(Toolbar.children).forEach(Btn => {
                 Btn.classList.remove("selected")
             });
