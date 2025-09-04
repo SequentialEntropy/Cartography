@@ -126,10 +126,10 @@ export function Canvas(WORLD: World) {
                     return
                 }
 
-                const fixed_square_width_in_grid = FIXED_WIDTH / TRANSFORM.scale
+                const fixed_square_width_in_grid = Math.max(1, FIXED_WIDTH / TRANSFORM.scale)
                 for (let i = 0; i < 4; i++) {
                     const point = BEZIER.points[i] as GridPosition
-                    const dist = Math.max(Math.abs(point.x - gridDecimalPos.x), Math.abs(point.z - gridDecimalPos.z))
+                    const dist = Math.max(Math.abs(point.x + .5 - gridDecimalPos.x), Math.abs(point.z + .5 - gridDecimalPos.z))
 
                     if (dist < fixed_square_width_in_grid / 2) {
                         BEZIER.dragging = i
