@@ -1,15 +1,23 @@
-import { BACKGROUND, markDirty, MIPMAP_LEVELS, MipmapImage } from "./Canvas.js"
+import { BACKGROUND, BEZIER, GridPosition, markDirty, MIPMAP_LEVELS, MipmapImage } from "./Canvas.js"
 import { World } from "../world/World.js"
+import { RailShape } from "../world/RailShape.js"
+
+export function cubicBezier(p0: number, p1: number, p2: number, p3: number, t: number): number {
+    return (1 - t) ** 3 * p0
+        + 3 * (1 - t) ** 2 * t * p1
+        + 3 * (1 - t) * t ** 2 * p2
+        + t ** 3 * p3;
+}
 
 export enum ToolTypes {
-    NS = "NS",
-    EW = "EW",
-    NE = "NE",
-    SE = "SE",
-    NW = "NW",
-    SW = "SW",
-    ERASE = "ERASE",
-    BEZIER = "BEZIER"
+    NS = "NS.png",
+    EW = "EW.png",
+    NE = "NE.png",
+    SE = "SE.png",
+    NW = "NW.png",
+    SW = "SW.png",
+    ERASE = "ERASE.png",
+    BEZIER = "BEZIER.png",
 }
 
 export let selectedTool = ToolTypes.NS
@@ -39,9 +47,9 @@ export function Toolbar(WORLD: World) {
         const Icon = document.createElement("img")
 
         if (selectedTool === tool) Icon.classList.add("selected")
-        Icon.src = `assets/${tool}.png`
+        Icon.src = `assets/${ToolTypes[tool as keyof typeof ToolTypes]}`
         Icon.addEventListener("click", () => {
-            selectedTool = tool as ToolTypes
+            selectedTool = ToolTypes[tool as keyof typeof ToolTypes]
             Array.from(Toolbar.children).forEach(Btn => {
                 Btn.classList.remove("selected")
             });
@@ -49,6 +57,45 @@ export function Toolbar(WORLD: World) {
         })
 
         Toolbar.appendChild(Icon)
+    }
+
+    const CommitButton = document.getElementById("commit")
+    if (!CommitButton) throw new Error("#commit not found - unable to load commit button")
+    CommitButton.onclick = () => {
+        const [p1, c1, c2, p2] = BEZIER.points
+        let last: GridPosition | null = null
+
+        BEZIER.points = [null, null, null, null]
+        BEZIER.dragging = -1
+
+        if (!(p1 && c1 && c2 && p2)) return
+
+        for (let t = 0; t <= 1; t += 0.0001) {
+            const x = Math.floor(cubicBezier(p1.x, c1.x, c2.x, p2.x, t) + 0.5)
+            const z = Math.floor(cubicBezier(p1.z, c1.z, c2.z, p2.z, t) + 0.5)
+
+            const dx = last ? Math.abs(x - last.x) : null
+            const dz = last ? Math.abs(z - last.z) : null
+            
+            // Fill in corner-corner connection
+            if (last && dx === 1 && dz === 1) {
+                const gridPoint = {
+                    x: last.x,
+                    z: z
+                } as GridPosition
+                placeSmoothTrack(gridPoint, WORLD)
+                placeSmoothTrack(last, WORLD)
+                last = gridPoint
+            }
+
+            const gridPoint = {x, z} as GridPosition
+            if (last && !(last.x === gridPoint.x && last.z === gridPoint.z)) {
+                placeSmoothTrack(gridPoint, WORLD)
+                placeSmoothTrack(last, WORLD)
+            }
+            last = gridPoint
+        }
+        markDirty()
     }
 
     const UploadButton = document.getElementById("upload")
@@ -142,4 +189,24 @@ function generate_mipmaps(img: MipmapImage) {
     }
 
     return mipmaps
+}
+
+function placeSmoothTrack({x, z}: GridPosition, world: World) {
+    const above = `${x},${z - 1}` in world.grid;
+    const below = `${x},${z + 1}` in world.grid;
+    const left  = `${x - 1},${z}` in world.grid;
+    const right = `${x + 1},${z}` in world.grid;
+
+    let orientation = RailShape.NORTH_SOUTH
+
+    if      (above && below) orientation = RailShape.NORTH_SOUTH;
+    else if (left  && right) orientation = RailShape.EAST_WEST;
+    else if (above && right) orientation = RailShape.NORTH_EAST;
+    else if (above && left)  orientation = RailShape.NORTH_WEST;
+    else if (below && right) orientation = RailShape.SOUTH_EAST;
+    else if (below && left)  orientation = RailShape.SOUTH_WEST;
+    else if (above || below) orientation = RailShape.NORTH_SOUTH;
+    else if (left  || right) orientation = RailShape.EAST_WEST;
+
+    world.grid[`${x},${z}`] = orientation
 }
