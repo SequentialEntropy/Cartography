@@ -95,6 +95,7 @@ export function Toolbar(WORLD: World) {
             }
             last = gridPoint
         }
+        markDirty()
     }
 
     const UploadButton = document.getElementById("upload")

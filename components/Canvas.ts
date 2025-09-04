@@ -112,11 +112,13 @@ export function Canvas(WORLD: World) {
                     BEZIER.points[0] = gridPos
                     BEZIER.points[1] = gridPos
                     BEZIER.dragging = 1
+                    markDirty()
                     return
                 } else if (BEZIER.points[3] === null) { // If second drag, set p2 and c2
                     BEZIER.points[3] = gridPos
                     BEZIER.points[2] = gridPos
                     BEZIER.dragging = 2
+                    markDirty()
                     return
                 }
 
@@ -153,6 +155,7 @@ export function Canvas(WORLD: World) {
             if (selectedTool === ToolTypes.BEZIER) {
                 const gridPos = snap(canvasToGrid(pos))
                 BEZIER.points[BEZIER.dragging] = gridPos
+                markDirty()
             } else {
                 draw(pos)
                 MOUSE.lastPos = pos
