@@ -1,4 +1,4 @@
-import { BACKGROUND, BEZIER, GridPosition, markDirty, MIPMAP_LEVELS, MipmapImage } from "./Canvas.js"
+import { BACKGROUND, BEZIER, CIRCLE, GridPosition, markDirty, MIPMAP_LEVELS, MipmapImage } from "./Canvas.js"
 import { World } from "../world/World.js"
 import { RailShape } from "../world/RailShape.js"
 
@@ -17,6 +17,7 @@ export enum ToolTypes {
     NW = "NW.png",
     SW = "SW.png",
     ERASE = "ERASE.png",
+    CIRCLE = "snowball.png",
     BEZIER = "BEZIER.png",
 }
 
@@ -137,6 +138,29 @@ export function Toolbar(WORLD: World) {
         }
         tickcounter.onmouseout = tickcounter.onmouseup
     }
+
+    const radiusSlider = document.getElementById("radiusSlider") as HTMLInputElement
+    const radiusValue = document.getElementById("radiusValue")
+    if (!radiusSlider) throw new Error("#radiusSlider not found - unable to load radiusSlider")
+    if (!radiusValue) throw new Error("#radiusValue not found - unable to load radiusValue")
+    radiusSlider.addEventListener("input", () => {
+        const r = parseInt(radiusSlider.value)
+        radiusValue.textContent = `R = ${radiusSlider.value}`
+
+        if (CIRCLE.focus) {
+            CIRCLE.focus.radius = r
+            markDirty()
+        }
+    })
+
+    const DeleteButton = document.getElementById("delete")
+    if (!DeleteButton) throw new Error("#delete not found - unable to load delete")
+    DeleteButton.addEventListener("click", () => {
+        if (CIRCLE.focus) {
+            CIRCLE.circles = CIRCLE.circles.filter(c => c !== CIRCLE.focus)
+            CIRCLE.focus = null
+        }
+    })
 }
 
 function importJSON(file: File, WORLD: World) {

@@ -26,7 +26,7 @@ body {
     height: 32px;
 }
 
-#toolbar img, p, button {
+#toolbar img, p, button, input {
     border: 2px solid transparent;
     margin: 2px;
 }
@@ -63,6 +63,10 @@ body {
 
 #toolbar img:hover {
     background-color: rgb(220, 220, 220);
+}
+
+#toolbar input {
+    width: 300px;
 }
 
 #upload {
