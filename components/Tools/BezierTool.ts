@@ -53,6 +53,14 @@ export function mousemove(pos: GridPosition) {
     const gridPos = snap(pos)
     BEZIER.points[BEZIER.dragging] = gridPos
     markDirty()
+
+    const [p1, c1, c2, p2] = BEZIER.points
+    if (p1 && c1 && c2 && p2) {
+        const curvatureValue = document.getElementById("curvatureValue")
+        if (curvatureValue) {
+            curvatureValue.textContent = `C = ${Math.floor(minRadiusOfCurvature(p1, c1, c2, p2, 100))}`
+        }
+    }
 }
 
 export function render(ctx: CanvasRenderingContext2D) {
@@ -187,4 +195,45 @@ function cubicBezier(p0: number, p1: number, p2: number, p3: number, t: number):
         + 3 * (1 - t) ** 2 * t * p1
         + 3 * (1 - t) * t ** 2 * p2
         + t ** 3 * p3;
+}
+
+function bezierDerivatives(p0: GridPosition, p1: GridPosition, p2: GridPosition, p3: GridPosition, t: number) {
+    // First derivative
+    const dx = 3 * (1 - t) ** 2 * (p1.x - p0.x)
+             + 6 * (1 - t) * t * (p2.x - p1.x)
+             + 3 * t ** 2 * (p3.x - p2.x);
+
+    const dz = 3 * (1 - t) ** 2 * (p1.z - p0.z)
+             + 6 * (1 - t) * t * (p2.z - p1.z)
+             + 3 * t ** 2 * (p3.z - p2.z);
+
+    // Second derivative
+    const ddx = 6 * (1 - t) * (p2.x - 2 * p1.x + p0.x)
+              + 6 * t * (p3.x - 2 * p2.x + p1.x);
+
+    const ddz = 6 * (1 - t) * (p2.z - 2 * p1.z + p0.z)
+              + 6 * t * (p3.z - 2 * p2.z + p1.z);
+
+    return { dx, dz, ddx, ddz };
+}
+
+function radiusOfCurvature(p0: GridPosition, p1: GridPosition, p2: GridPosition, p3: GridPosition, t: number): number {
+    const { dx, dz, ddx, ddz } = bezierDerivatives(p0, p1, p2, p3, t);
+
+    const numerator = Math.pow(dx * dx + dz * dz, 1.5);
+    const denominator = Math.abs(dx * ddz - dz * ddx);
+
+    if (denominator === 0) return Infinity; // Straight line section
+
+    return numerator / denominator;
+}
+
+function minRadiusOfCurvature(p0: GridPosition, p1: GridPosition, p2: GridPosition, p3: GridPosition, samples = 100): number {
+    let minR = Infinity;
+    for (let i = 0; i <= samples; i++) {
+        const t = i / samples;
+        const R = radiusOfCurvature(p0, p1, p2, p3, t);
+        if (R < minR) minR = R;
+    }
+    return minR;
 }
