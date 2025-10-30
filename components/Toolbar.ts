@@ -1,13 +1,8 @@
-import { BACKGROUND, BEZIER, GridPosition, markDirty, MIPMAP_LEVELS, MipmapImage } from "./Canvas.js"
+import { BACKGROUND, markDirty, MIPMAP_LEVELS, MipmapImage } from "./Canvas.js"
 import { World } from "../world/World.js"
-import { RailShape } from "../world/RailShape.js"
 
-export function cubicBezier(p0: number, p1: number, p2: number, p3: number, t: number): number {
-    return (1 - t) ** 3 * p0
-        + 3 * (1 - t) ** 2 * t * p1
-        + 3 * (1 - t) * t ** 2 * p2
-        + t ** 3 * p3;
-}
+import * as BezierTool from "./Tools/BezierTool.js"
+import * as CircleTool from "./Tools/CircleTool.js"
 
 export enum ToolTypes {
     NS = "NS.png",
@@ -17,6 +12,7 @@ export enum ToolTypes {
     NW = "NW.png",
     SW = "SW.png",
     ERASE = "ERASE.png",
+    CIRCLE = "snowball.png",
     BEZIER = "BEZIER.png",
 }
 
@@ -62,40 +58,7 @@ export function Toolbar(WORLD: World) {
     const CommitButton = document.getElementById("commit")
     if (!CommitButton) throw new Error("#commit not found - unable to load commit button")
     CommitButton.onclick = () => {
-        const [p1, c1, c2, p2] = BEZIER.points
-        let last: GridPosition | null = null
-
-        BEZIER.points = [null, null, null, null]
-        BEZIER.dragging = -1
-
-        if (!(p1 && c1 && c2 && p2)) return
-
-        for (let t = 0; t <= 1; t += 0.0001) {
-            const x = Math.floor(cubicBezier(p1.x, c1.x, c2.x, p2.x, t) + 0.5)
-            const z = Math.floor(cubicBezier(p1.z, c1.z, c2.z, p2.z, t) + 0.5)
-
-            const dx = last ? Math.abs(x - last.x) : null
-            const dz = last ? Math.abs(z - last.z) : null
-            
-            // Fill in corner-corner connection
-            if (last && dx === 1 && dz === 1) {
-                const gridPoint = {
-                    x: last.x,
-                    z: z
-                } as GridPosition
-                placeSmoothTrack(gridPoint, WORLD)
-                placeSmoothTrack(last, WORLD)
-                last = gridPoint
-            }
-
-            const gridPoint = {x, z} as GridPosition
-            if (last && !(last.x === gridPoint.x && last.z === gridPoint.z)) {
-                placeSmoothTrack(gridPoint, WORLD)
-                placeSmoothTrack(last, WORLD)
-            }
-            last = gridPoint
-        }
-        markDirty()
+        BezierTool.commit(WORLD)
     }
 
     const UploadButton = document.getElementById("upload")
@@ -137,6 +100,23 @@ export function Toolbar(WORLD: World) {
         }
         tickcounter.onmouseout = tickcounter.onmouseup
     }
+
+    const radiusSlider = document.getElementById("radiusSlider") as HTMLInputElement
+    const radiusValue = document.getElementById("radiusValue")
+    if (!radiusSlider) throw new Error("#radiusSlider not found - unable to load radiusSlider")
+    if (!radiusValue) throw new Error("#radiusValue not found - unable to load radiusValue")
+    radiusSlider.addEventListener("input", () => {
+        const r = parseInt(radiusSlider.value)
+        radiusValue.textContent = `R = ${radiusSlider.value}`
+
+        CircleTool.setRadiusSelectedCircle(r)
+    })
+
+    const DeleteButton = document.getElementById("delete")
+    if (!DeleteButton) throw new Error("#delete not found - unable to load delete")
+    DeleteButton.addEventListener("click", () => {
+        CircleTool.deleteSelectedCircle()
+    })
 }
 
 function importJSON(file: File, WORLD: World) {
@@ -189,24 +169,4 @@ function generate_mipmaps(img: MipmapImage) {
     }
 
     return mipmaps
-}
-
-function placeSmoothTrack({x, z}: GridPosition, world: World) {
-    const above = `${x},${z - 1}` in world.grid;
-    const below = `${x},${z + 1}` in world.grid;
-    const left  = `${x - 1},${z}` in world.grid;
-    const right = `${x + 1},${z}` in world.grid;
-
-    let orientation = RailShape.NORTH_SOUTH
-
-    if      (above && below) orientation = RailShape.NORTH_SOUTH;
-    else if (left  && right) orientation = RailShape.EAST_WEST;
-    else if (above && right) orientation = RailShape.NORTH_EAST;
-    else if (above && left)  orientation = RailShape.NORTH_WEST;
-    else if (below && right) orientation = RailShape.SOUTH_EAST;
-    else if (below && left)  orientation = RailShape.SOUTH_WEST;
-    else if (above || below) orientation = RailShape.NORTH_SOUTH;
-    else if (left  || right) orientation = RailShape.EAST_WEST;
-
-    world.grid[`${x},${z}`] = orientation
 }

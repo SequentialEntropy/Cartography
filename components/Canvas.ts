@@ -1,16 +1,10 @@
-import { cubicBezier, selectedTool, ToolTypes } from "./Toolbar.js"
+import { selectedTool, ToolTypes } from "./Toolbar.js"
 import { World } from "../world/World.js"
 import { RailShape } from "../world/RailShape.js"
 
-export const BEZIER = {
-    points: [
-        null,
-        null,
-        null,
-        null,
-    ] as (GridPosition | null)[],
-    dragging: -1,
-}
+import * as DrawTool from "./Tools/DrawTool.js"
+import * as BezierTool from "./Tools/BezierTool.js"
+import * as CircleTool from "./Tools/CircleTool.js"
 
 export const BACKGROUND: {
     image: MipmapImage[],
@@ -24,7 +18,7 @@ export const TRANSFORM = {
     scale: 2.4,
 }
 
-const MOUSE: {draw: boolean, lastPos: null | CanvasPosition} = {
+export const MOUSE: {draw: boolean, lastPos: null | GridPosition} = {
     draw: false,
     lastPos: null
 }
@@ -47,6 +41,19 @@ interface CanvasPosition {
     y: number
 }
 
+export function snap({x, z}: GridPosition) {
+    return {
+        x: Math.floor(x),
+        z: Math.floor(z)
+    }
+}
+
+const ZOOM_SPEED = 0.01
+const RENDER_IMAGE_THRESHOLD = 8
+const MINECART_ALPHA = 0.8
+export const LINE_WIDTH = 0.1875
+export const FIXED_WIDTH = 8
+
 export function Canvas(WORLD: World) {
     const CANVAS = document.getElementById("canvas") as HTMLCanvasElement
     const ctx = CANVAS.getContext("2d", { alpha: false }) as CanvasRenderingContext2D
@@ -61,12 +68,6 @@ export function Canvas(WORLD: World) {
     updateCanvasSize()
 
     const textures: Record<string, HTMLImageElement> = {}
-
-    const ZOOM_SPEED = 0.01
-    const RENDER_IMAGE_THRESHOLD = 8
-    const MINECART_ALPHA = 0.8
-    const LINE_WIDTH = 0.1875
-    const FIXED_WIDTH = 8
 
     for (const shapeName in RailShape) {
         const shape = RailShape[shapeName as keyof typeof RailShape]
@@ -102,141 +103,44 @@ export function Canvas(WORLD: World) {
     CANVAS.addEventListener("mousedown", e => {
         if (e.button === 0) {
             MOUSE.draw = true
-            const pos = Object.freeze({x: e.clientX, y: e.clientY})
+            const canvasPos = Object.freeze({x: e.clientX, y: e.clientY})
+            const gridPos = canvasToGrid(canvasPos)
 
             if (selectedTool === ToolTypes.BEZIER) {
-                const gridDecimalPos = canvasToGrid(pos)
-                const gridPos = snap(gridDecimalPos)
-
-                if (BEZIER.points[0] === null) { // If first drag, set p1 and c1
-                    BEZIER.points[0] = gridPos
-                    BEZIER.points[1] = gridPos
-                    BEZIER.dragging = 1
-                    markDirty()
-                    return
-                } else if (BEZIER.points[3] === null) { // If second drag, set p2 and c2
-                    BEZIER.points[3] = gridPos
-                    BEZIER.points[2] = gridPos
-                    BEZIER.dragging = 2
-                    markDirty()
-                    return
-                }
-
-                if (BEZIER.points[1] === null || BEZIER.points[2] === null) {
-                    return
-                }
-
-                const fixed_square_width_in_grid = Math.max(1, FIXED_WIDTH / TRANSFORM.scale)
-                for (let i = 0; i < 4; i++) {
-                    const point = BEZIER.points[i] as GridPosition
-                    const dist = Math.max(Math.abs(point.x + .5 - gridDecimalPos.x), Math.abs(point.z + .5 - gridDecimalPos.z))
-
-                    if (dist < fixed_square_width_in_grid / 2) {
-                        BEZIER.dragging = i
-                        break
-                    }
-                }
+                BezierTool.mousedown(gridPos)
+            } else if (selectedTool === ToolTypes.CIRCLE) {
+                CircleTool.mousedown(gridPos)
             } else {
-                draw(pos)
-                MOUSE.lastPos = pos
+                DrawTool.mousedown(gridPos, WORLD)
             }
+
+            MOUSE.lastPos = gridPos
         }
     })
 
     CANVAS.addEventListener("mouseup", () => {
         MOUSE.draw = false
         MOUSE.lastPos = null
-        BEZIER.dragging = -1
+        BezierTool.mouseup()
+        CircleTool.mouseup()
     })
 
     CANVAS.addEventListener("mousemove", e => {
         if (MOUSE.draw) {
-            const pos = Object.freeze({x: e.clientX, y: e.clientY})
+            const canvasPos = Object.freeze({x: e.clientX, y: e.clientY})
+            const gridPos = canvasToGrid(canvasPos)
+
             if (selectedTool === ToolTypes.BEZIER) {
-                const gridPos = snap(canvasToGrid(pos))
-                BEZIER.points[BEZIER.dragging] = gridPos
-                markDirty()
+                BezierTool.mousemove(gridPos)
+            } else if (selectedTool === ToolTypes.CIRCLE) {
+                CircleTool.mousemove(gridPos)
             } else {
-                draw(pos)
-                MOUSE.lastPos = pos
+                DrawTool.mousemove(gridPos, WORLD)
             }
+
+            MOUSE.lastPos = gridPos
         }
     })
-
-    /**
-     * Bresenham's Line Algorithm
-     */
-    function interpolateLine(pos0: GridPosition, pos1: GridPosition, callback: (pos: GridPosition) => void) {
-        let x = pos0.x
-        let z = pos0.z
-        const x1 = pos1.x
-        const z1 = pos1.z
-        const dx = Math.abs(x1 - x);
-        const dz = Math.abs(z1 - z);
-        const sx = x < x1 ? 1 : -1;
-        const sz = z < z1 ? 1 : -1;
-        let err = dx - dz;
-
-        while (true) {
-            callback({x, z});
-            if (x === x1 && z === z1) break;
-            const e2 = 2 * err;
-            if (e2 > -dz) {
-                err -= dz;
-                x += sx;
-            }
-            if (e2 < dx) {
-                err += dx;
-                z += sz;
-            }
-        }
-    }
-
-    function draw(pos: CanvasPosition) {
-        if (!MOUSE.lastPos) {
-            placeOrErase(snap(canvasToGrid(pos)))
-        } else {
-            interpolateLine(snap(canvasToGrid(MOUSE.lastPos)), snap(canvasToGrid(pos)), placeOrErase)
-        }
-    }
-
-    function placeOrErase(pos: GridPosition) {
-        switch(selectedTool) {
-            case ToolTypes.ERASE:
-                erase(pos)
-                break
-            case ToolTypes.NS:
-                place(pos, "NS")
-                break
-            case ToolTypes.EW:
-                place(pos, "EW")
-                break
-            case ToolTypes.NE:
-                place(pos, "NE")
-                break
-            case ToolTypes.SE:
-                place(pos, "SE")
-                break
-            case ToolTypes.NW:
-                place(pos, "NW")
-                break
-            case ToolTypes.SW:
-                place(pos, "SW")
-                break
-        }
-    }
-
-    function place({x, z}: GridPosition, shape: string) {
-        const key = `${x},${z}`
-        WORLD.grid[key] = shape
-        markDirty()
-    }
-
-    function erase({x, z}: GridPosition) {
-        const key = `${x},${z}`
-        delete WORLD.grid[key]
-        markDirty()
-    }
 
     function canvasToGrid({x, y}: CanvasPosition) {
         const rect = CANVAS.getBoundingClientRect();
@@ -244,13 +148,6 @@ export function Canvas(WORLD: World) {
             x: ((x - rect.left) - TRANSFORM.x) / TRANSFORM.scale,
             z: ((y - rect.top) - TRANSFORM.y) / TRANSFORM.scale
         };
-    }
-
-    function snap({x, z}: GridPosition) {
-        return {
-            x: Math.floor(x),
-            z: Math.floor(z)
-        }
     }
 
     function drawRotatedImage(image: HTMLImageElement, x: number, y: number, angle: number, width: number, height: number) {
@@ -333,73 +230,9 @@ export function Canvas(WORLD: World) {
             }
         }
 
-        const [p1, c1, c2, p2] = BEZIER.points
+        BezierTool.render(ctx)
 
-        let last: GridPosition | null = null
-
-        if (p1 && c1 && c2 && p2) {
-            ctx.fillStyle = "#918470"
-            ctx.lineWidth = LINE_WIDTH * TRANSFORM.scale
-            ctx.beginPath()
-            for (let t = 0; t <= 1; t += 0.0001) {
-                const x = cubicBezier(p1.x, c1.x, c2.x, p2.x, t) + .5
-                const z = cubicBezier(p1.z, c1.z, c2.z, p2.z, t) + .5
-
-                if (t === 0) ctx.moveTo(x * TRANSFORM.scale + TRANSFORM.x, z * TRANSFORM.scale + TRANSFORM.y);
-                else ctx.lineTo(x * TRANSFORM.scale + TRANSFORM.x, z * TRANSFORM.scale + TRANSFORM.y);
-
-                const gridPoint = snap({x, z})
-
-                const dx = last ? Math.abs(gridPoint.x - last.x) : null
-                const dz = last ? Math.abs(gridPoint.z - last.z) : null
-
-                if (last && dx === 1 && dz === 1) {
-                    const cornerPoint: GridPosition = {
-                        x: last.x,
-                        z: gridPoint.z
-                    }
-                    ctx.fillRect(Math.floor(cornerPoint.x * TRANSFORM.scale + TRANSFORM.x), Math.floor(cornerPoint.z * TRANSFORM.scale + TRANSFORM.y), Math.ceil(TRANSFORM.scale), Math.ceil(TRANSFORM.scale))
-                    last = cornerPoint
-                }
-
-                if (last && !(last.x === gridPoint.x && last.z === gridPoint.z)) {
-                    ctx.fillRect(Math.floor(gridPoint.x * TRANSFORM.scale + TRANSFORM.x), Math.floor(gridPoint.z * TRANSFORM.scale + TRANSFORM.y), Math.ceil(TRANSFORM.scale), Math.ceil(TRANSFORM.scale))
-                }
-                last = gridPoint
-            }
-        }
-
-        const fixed_line_width = Math.max(Math.ceil(LINE_WIDTH * FIXED_WIDTH), Math.ceil(LINE_WIDTH * TRANSFORM.scale))
-        const fixed_square_width = Math.max(FIXED_WIDTH, Math.ceil(TRANSFORM.scale))
-        if (p1 && c1) {
-            ctx.lineWidth = fixed_line_width
-            ctx.beginPath()
-            ctx.moveTo((p1.x + .5) * TRANSFORM.scale + TRANSFORM.x, (p1.z + .5) * TRANSFORM.scale + TRANSFORM.y)
-            ctx.lineTo((c1.x + .5) * TRANSFORM.scale + TRANSFORM.x, (c1.z + .5) * TRANSFORM.scale + TRANSFORM.y)
-            ctx.strokeStyle = "#0000ff"
-            ctx.stroke()
-
-            ctx.fillStyle = "#ff0000"
-            ctx.fillRect(Math.floor((p1.x + .5) * TRANSFORM.scale + TRANSFORM.x - fixed_square_width / 2), Math.floor((p1.z + .5) * TRANSFORM.scale + TRANSFORM.y - fixed_square_width / 2), fixed_square_width, fixed_square_width)
-            
-            ctx.fillStyle = "#0000ff"
-            ctx.fillRect(Math.floor((c1.x + .5) * TRANSFORM.scale + TRANSFORM.x - fixed_square_width / 2), Math.floor((c1.z + .5) * TRANSFORM.scale + TRANSFORM.y - fixed_square_width / 2), fixed_square_width, fixed_square_width)
-        }
-
-        if (p2 && c2) {
-            ctx.lineWidth = fixed_line_width
-            ctx.beginPath()
-            ctx.moveTo((p2.x + .5) * TRANSFORM.scale + TRANSFORM.x, (p2.z + .5) * TRANSFORM.scale + TRANSFORM.y)
-            ctx.lineTo((c2.x + .5) * TRANSFORM.scale + TRANSFORM.x, (c2.z + .5) * TRANSFORM.scale + TRANSFORM.y)
-            ctx.strokeStyle = "#0000ff"
-            ctx.stroke()
-
-            ctx.fillStyle = "#ff0000"
-            ctx.fillRect(Math.floor((p2.x + .5) * TRANSFORM.scale + TRANSFORM.x - fixed_square_width / 2), Math.floor((p2.z + .5) * TRANSFORM.scale + TRANSFORM.y - fixed_square_width / 2), fixed_square_width, fixed_square_width)
-
-            ctx.fillStyle = "#0000ff"
-            ctx.fillRect(Math.floor((c2.x + .5) * TRANSFORM.scale + TRANSFORM.x - fixed_square_width / 2), Math.floor((c2.z + .5) * TRANSFORM.scale + TRANSFORM.y - fixed_square_width / 2), fixed_square_width, fixed_square_width)
-        }
+        CircleTool.render(ctx)
 
         ctx.restore()
     }
